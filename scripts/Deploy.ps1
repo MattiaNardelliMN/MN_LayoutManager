@@ -30,15 +30,15 @@ $ErrorActionPreference = 'Stop'
 # ---------------------------------------------------------------- costanti
 $AutoCadYear      = '2024'
 $AutoCadSeries    = 'R24.3'   # sigla interna di AutoCAD 2024
-$BundleName       = 'LayoutManagerPalette.bundle'
-$PluginAssembly   = 'LayoutManagerPalette.dll'
-$CoreAssembly     = 'LayoutManagerPalette.Core.dll'
+$BundleName       = 'MN_LayoutManager.bundle'
+$PluginAssembly   = 'MN_LayoutManager.dll'
+$CoreAssembly     = 'MN_LayoutManager.Core.dll'
 $CommandName      = 'GESTIONELAYOUT'
 
 $RepoRoot         = Split-Path -Parent $PSScriptRoot
-$SolutionPath     = Join-Path $RepoRoot 'LayoutManagerPalette.sln'
-$PluginProject    = Join-Path $RepoRoot 'src\LayoutManagerPalette\LayoutManagerPalette.csproj'
-$BuildOutputDir   = Join-Path $RepoRoot 'src\LayoutManagerPalette\bin\Release\net48'
+$SolutionPath     = Join-Path $RepoRoot 'MN_LayoutManager.sln'
+$PluginProject    = Join-Path $RepoRoot 'src\MN_LayoutManager\MN_LayoutManager.csproj'
+$BuildOutputDir   = Join-Path $RepoRoot 'src\MN_LayoutManager\bin\Release\net48'
 $BundleDir        = Join-Path $env:APPDATA "Autodesk\ApplicationPlugins\$BundleName"
 $BundleContents   = Join-Path $BundleDir 'Contents'
 
@@ -146,7 +146,7 @@ $packageContents = @"
   <CompanyDetails Name="MN" />
   <Components Description="AutoCAD $AutoCadYear">
     <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="$AutoCadSeries" SeriesMax="$AutoCadSeries" />
-    <ComponentEntry AppName="LayoutManagerPalette"
+    <ComponentEntry AppName="MN_LayoutManager"
                     Version="1.0.0"
                     ModuleName="./Contents/$PluginAssembly"
                     AppDescription="Palette Gestione Layout"
@@ -171,7 +171,7 @@ Write-Host "   1. apri AutoCAD $AutoCadYear"
 Write-Host "   2. digita il comando  $CommandName  e premi INVIO"
 Write-Host ''
 Write-Host " Se qualcosa non funziona, il file di log e' qui:"
-Write-Host "   $env:APPDATA\LayoutManagerPalette\logs\"
+Write-Host "   $env:APPDATA\MN_LayoutManager\logs\"
 Write-Host ''
 Write-Host ' Per disinstallare:  .\scripts\Deploy.ps1 -Uninstall'
 Write-Host ''

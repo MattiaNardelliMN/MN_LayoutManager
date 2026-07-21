@@ -18,7 +18,7 @@
 - Stato: appena iniziato. Struttura base e repository creati.
 
 **Cosa resta da fare:**
-- Realizzare il piano descritto in `LayoutManagerPalette_Piano.md`.
+- Realizzare il piano descritto in `MN_LayoutManager_Piano.md`.
 
 ---
 
@@ -45,18 +45,18 @@
 ## 2026-07-21 - Nascita del plugin: struttura, logica e palette scura
 
 **Cosa ho fatto:**
-- Creato il progetto vero e proprio a partire dal piano in `LayoutManagerPalette_Piano.md`.
+- Creato il progetto vero e proprio a partire dal piano in `MN_LayoutManager_Piano.md`.
   Il progetto e' diviso in tre parti separate:
-  - `src/LayoutManagerPalette.Core` = la parte che "ragiona" (regole sui nomi dei layout,
+  - `src/MN_LayoutManager.Core` = la parte che "ragiona" (regole sui nomi dei layout,
     calcolo della rinomina multipla, calcolo del riordino, generazione dell'elenco fogli
     per la stampa). Non sa niente di AutoCAD, quindi si puo' testare a comando.
-  - `src/LayoutManagerPalette` = il plugin che parla con AutoCAD e la palette grafica.
-  - `tests/LayoutManagerPalette.Core.Tests` = 76 test automatici sulla parte che ragiona.
+  - `src/MN_LayoutManager` = il plugin che parla con AutoCAD e la palette grafica.
+  - `tests/MN_LayoutManager.Core.Tests` = 76 test automatici sulla parte che ragiona.
 - Scritta la palette in WPF con tema scuro moderno (elenco layout, barra strumenti,
   menu col tasto destro, pannello rinomina multipla, riga di stato).
 - Scritto il comando `GESTIONELAYOUT` che apre e chiude la palette.
 - Aggiunto un registro degli errori su file, uno al giorno, in
-  `%AppData%\LayoutManagerPalette\logs\`.
+  `%AppData%\MN_LayoutManager\logs\`.
 - Aggiunto `scripts/Installa plugin.bat`: doppio click e il plugin viene compilato,
   testato e installato in AutoCAD senza dover digitare NETLOAD.
 
@@ -96,5 +96,41 @@
   F2 / Canc / Ctrl+C / Ctrl+V arrivino alla palette quando e' agganciata.
 - Installare `PSScriptAnalyzer` per l'analisi statica degli script PowerShell
   (al momento non e' installato sulla macchina).
+
+---
+
+## 2026-07-21 - Correzione del nome del progetto
+
+**Cosa ho fatto:**
+- Nel piano iniziale il progetto era stato chiamato `LayoutManagerPalette`, ma il nome
+  giusto e' **`MN_LayoutManager`**. Rinominato tutto, senza lasciare tracce del vecchio nome:
+  - cartelle `src/` e `tests/`, file `.sln` e `.csproj`;
+  - namespace del codice e nome delle DLL prodotte;
+  - riferimento interno dello XAML al file del tema (l'indirizzo `pack://...`);
+  - cartella dei log, ora `%AppData%\MN_LayoutManager\logs\`;
+  - nome del bundle di installazione, ora `MN_LayoutManager.bundle`;
+  - file del piano, ora `MN_LayoutManager_Piano.md`.
+- 103 sostituzioni in 38 file, piu' 8 rinomine di file e cartelle.
+
+**Decisioni importanti (e perche'):**
+- Il piano avvisava di non chiamare il progetto `LayoutManager`, perche' e' anche il nome
+  di un tipo delle API AutoCAD e i due si confonderebbero. `MN_LayoutManager` e' un nome
+  diverso, quindi il problema non si pone. In piu' nel codice le API AutoCAD sono
+  richiamate con un soprannome esplicito (`AcadLayoutManager`), che rende impossibile
+  l'ambiguita' anche in futuro.
+- Le cartelle di compilazione vecchie sono state cancellate prima della rinomina, per non
+  lasciare in giro DLL col nome sbagliato.
+- I nomi delle singole classi (`LayoutPaletteView`, `LayoutPaletteHost`, ...) sono rimasti:
+  descrivono cosa fa quel pezzo, non il nome del progetto.
+
+**Verificato con:**
+- Ricerca in tutti i file tracciati del vecchio nome, anche ignorando maiuscole/minuscole:
+  nessuna occorrenza rimasta, ne' nei contenuti ne' nei nomi dei file.
+- `dotnet build` su tutta la soluzione: 0 errori, 0 avvisi.
+- `dotnet test`: 76 test, tutti passati.
+- Compilazione in Release: produce `MN_LayoutManager.dll` e `MN_LayoutManager.Core.dll`.
+
+**Cosa resta da fare:**
+- Invariato rispetto al blocco precedente: la prova a mano dentro AutoCAD 2024.
 
 ---

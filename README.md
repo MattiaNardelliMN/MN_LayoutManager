@@ -20,7 +20,7 @@ stampa e pubblicazione in blocco.
 2. Doppio click su `scripts\Installa plugin.bat`.
 
 Lo script compila il plugin, esegue i test e — solo se tutto e' verde — lo copia
-in `%AppData%\Autodesk\ApplicationPlugins\LayoutManagerPalette.bundle\`.
+in `%AppData%\Autodesk\ApplicationPlugins\MN_LayoutManager.bundle\`.
 Da quel momento AutoCAD lo carica **da solo a ogni avvio**: non serve `NETLOAD`.
 
 Per disinstallare: `.\scripts\Deploy.ps1 -Uninstall`
@@ -59,7 +59,7 @@ comandi nativi di AutoCAD o quando si cambia disegno attivo.
 Il plugin scrive un file di log leggibile, uno al giorno, qui:
 
 ```
-%AppData%\LayoutManagerPalette\logs\
+%AppData%\MN_LayoutManager\logs\
 ```
 
 Ogni riga dice data, gravita' (INFO / WARN / ERROR), cosa stava facendo il plugin
@@ -69,10 +69,10 @@ si comporta in modo strano.
 ## Struttura del progetto
 
 ```
-src/LayoutManagerPalette.Core/   logica pura (nomi, rinomina multipla, riordino, file DSD)
-src/LayoutManagerPalette/        plugin vero: comandi AutoCAD + palette WPF scura
-tests/                           test automatici della logica pura
-scripts/                         installazione e disinstallazione
+src/MN_LayoutManager.Core/   logica pura (nomi, rinomina multipla, riordino, file DSD)
+src/MN_LayoutManager/        plugin vero: comandi AutoCAD + palette WPF scura
+tests/                       test automatici della logica pura
+scripts/                     installazione e disinstallazione
 ```
 
 La divisione non e' casuale: tutto cio' che "ragiona" sta in `.Core`, che non
