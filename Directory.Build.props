@@ -1,0 +1,21 @@
+<Project>
+
+  <!-- Impostazioni comuni a tutti i progetti della soluzione.
+       Stanno qui una volta sola per non ripeterle in ogni .csproj. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+
+    <!-- Gli analizzatori automatici del compilatore controllano il codice al
+         posto nostro: qualsiasi avviso diventa un errore di compilazione,
+         cosi' non si puo' "far finta di niente". -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>
