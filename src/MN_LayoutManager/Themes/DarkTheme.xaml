@@ -287,6 +287,84 @@
         </Setter>
     </Style>
 
+    <!-- ===================== Sezioni richiudibili ===================== -->
+    <!--
+        Le sezioni in fondo alla palette (stampa, rinomina multipla) si possono
+        chiudere cliccando sul titolo: cosi' quando servono solo i layout la palette
+        resta bassa, e non si e' costretti a tenerla alta mezzo schermo.
+    -->
+    <Style x:Key="SectionExpanderStyle" TargetType="Expander">
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Expander">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource StandardCorner}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <ToggleButton Grid.Row="0"
+                                          Focusable="False"
+                                          Cursor="Hand"
+                                          IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="HeaderRoot" Background="Transparent" Padding="10,8">
+                                            <StackPanel Orientation="Horizontal">
+                                                <!-- Due triangoli: si mostra quello giusto invece di ruotarne uno. -->
+                                                <Path x:Name="ArrowClosed"
+                                                      Data="M 0,0 L 5,4 L 0,8 Z"
+                                                      Fill="{StaticResource TextSecondaryBrush}"
+                                                      VerticalAlignment="Center" />
+                                                <Path x:Name="ArrowOpen"
+                                                      Data="M 0,0 L 8,0 L 4,5 Z"
+                                                      Fill="{StaticResource AccentBrush}"
+                                                      VerticalAlignment="Center"
+                                                      Visibility="Collapsed" />
+                                                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="ArrowClosed" Property="Visibility" Value="Collapsed" />
+                                                <Setter TargetName="ArrowOpen" Property="Visibility" Value="Visible" />
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="HeaderRoot" Property="Background" Value="{StaticResource HoverBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+
+                                <TextBlock Style="{StaticResource SectionTitleStyle}"
+                                           Margin="0"
+                                           Text="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}" />
+                            </ToggleButton>
+
+                            <ContentPresenter x:Name="Body"
+                                              Grid.Row="1"
+                                              Margin="10,0,10,10"
+                                              Visibility="Collapsed" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True">
+                            <Setter TargetName="Body" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===================== Menu contestuale ===================== -->
     <Style x:Key="DarkMenuItemStyle" TargetType="MenuItem">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />

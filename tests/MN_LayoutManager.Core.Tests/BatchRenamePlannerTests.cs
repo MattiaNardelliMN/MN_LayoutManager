@@ -41,6 +41,92 @@ namespace MN_LayoutManager.Core.Tests
         }
 
         [Fact]
+        public void RimuoviPrefisso_ToglieIlTestoSoloAChiIniziaDavveroCosi()
+        {
+            var request = new BatchRenameRequest { Mode = BatchRenameMode.RemovePrefix, Value = "A_" };
+
+            BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(new[] { "A_Tavola1", "Tavola2", "XA_Tavola3" }, request);
+
+            Assert.True(plan.IsValid);
+            // Solo il primo inizia con "A_": gli altri due non vengono toccati.
+            Assert.Single(plan.Steps);
+            Assert.Equal("A_Tavola1", plan.Steps[0].OriginalName);
+            Assert.Equal("Tavola1", plan.Steps[0].FinalName);
+        }
+
+        [Fact]
+        public void RimuoviSuffisso_ToglieIlTestoSoloAChiFinisceDavveroCosi()
+        {
+            var request = new BatchRenameRequest { Mode = BatchRenameMode.RemoveSuffix, Value = "_rev1" };
+
+            BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(new[] { "Tavola1_rev1", "Tavola2", "Tavola3_rev1_old" }, request);
+
+            Assert.True(plan.IsValid);
+            Assert.Single(plan.Steps);
+            Assert.Equal("Tavola1", plan.Steps[0].FinalName);
+        }
+
+        [Fact]
+        public void RimuoviPrefisso_IgnoraMaiuscoleEMinuscolePerDefault()
+        {
+            var request = new BatchRenameRequest { Mode = BatchRenameMode.RemovePrefix, Value = "a_" };
+
+            BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(new[] { "A_Tavola1" }, request);
+
+            Assert.Equal("Tavola1", plan.Steps.Single().FinalName);
+        }
+
+        [Fact]
+        public void RimuoviPrefisso_ConDistinzioneMaiuscole_NonTocca()
+        {
+            var request = new BatchRenameRequest
+            {
+                Mode = BatchRenameMode.RemovePrefix,
+                Value = "a_",
+                CaseSensitive = true,
+            };
+
+            BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(new[] { "A_Tavola1" }, request);
+
+            Assert.True(plan.IsEmpty);
+        }
+
+        [Fact]
+        public void RimuovereTuttoIlNome_EBloccatoConUnMessaggio()
+        {
+            // Togliendo "Tavola" a un layout che si chiama esattamente "Tavola" resterebbe
+            // un nome vuoto: non deve passare, e non deve toccare il disegno.
+            var request = new BatchRenameRequest { Mode = BatchRenameMode.RemovePrefix, Value = "Tavola" };
+
+            BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(new[] { "Tavola" }, request);
+
+            Assert.False(plan.IsValid);
+            Assert.Empty(plan.Steps);
+        }
+
+        [Fact]
+        public void RimuoviPrefisso_SenzaTesto_ChiedeIlTestoDaTogliere()
+        {
+            var request = new BatchRenameRequest { Mode = BatchRenameMode.RemovePrefix, Value = string.Empty };
+
+            BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(TreLayout, request);
+
+            Assert.False(plan.IsValid);
+            Assert.Contains(plan.Errors, e => e.IndexOf("togliere", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        [Fact]
+        public void RimuoviPrefisso_CheGenerebbeDueNomiUguali_EUnErrore()
+        {
+            var request = new BatchRenameRequest { Mode = BatchRenameMode.RemovePrefix, Value = "A_" };
+
+            // "A_X" diventerebbe "X", ma "X" esiste gia' e non cambia nome.
+            BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(new[] { "A_X", "X" }, request);
+
+            Assert.False(plan.IsValid);
+        }
+
+        [Fact]
         public void TrovaESostituisci_CambiaSoloLaParteIndicata()
         {
             var request = new BatchRenameRequest

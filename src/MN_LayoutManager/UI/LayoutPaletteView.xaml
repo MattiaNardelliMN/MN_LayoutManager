@@ -60,7 +60,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="*" MinHeight="120" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -159,19 +160,74 @@
             </Canvas>
         </Grid>
 
-        <!-- ============ Rinomina multipla ============ -->
-        <Border Grid.Row="3"
-                Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="{StaticResource StandardCorner}"
-                Padding="10"
-                Margin="0,8,0,0">
+        <!-- ============ Destinazione di stampa e pubblicazione ============ -->
+        <Expander Grid.Row="3"
+                  Style="{StaticResource SectionExpanderStyle}"
+                  Header="STAMPA E PUBBLICAZIONE"
+                  IsExpanded="False"
+                  Margin="0,8,0,0">
             <StackPanel>
-                <TextBlock Style="{StaticResource SectionTitleStyle}" Text="RINOMINA MULTIPLA" />
 
                 <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                           Text="Agisce su tutti i layout che passano il filtro, non solo sui selezionati."
+                           Text="Viene creato un file separato per ogni layout, con il nome del layout."
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8" />
+
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Style="{StaticResource BodyTextStyle}"
+                               Text="Cartella:"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"
+                               MinWidth="58" />
+                    <TextBox Grid.Column="1"
+                             Style="{StaticResource InputTextBoxStyle}"
+                             Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding OutputFolder}" />
+                    <Button Grid.Column="2"
+                            Style="{StaticResource ToolButtonStyle}"
+                            Content="Sfoglia..."
+                            Margin="6,0,0,0"
+                            Command="{Binding BrowseOutputFolderCommand}" />
+                </Grid>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource BodyTextStyle}"
+                               Text="Formato:"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"
+                               MinWidth="58" />
+                    <RadioButton Style="{StaticResource OptionRadioStyle}"
+                                 Content="PDF"
+                                 GroupName="PublishFormat"
+                                 IsChecked="{Binding IsPdfFormat, Mode=TwoWay}" />
+                    <RadioButton Style="{StaticResource OptionRadioStyle}"
+                                 Content="DWF"
+                                 GroupName="PublishFormat"
+                                 IsChecked="{Binding IsDwfFormat, Mode=TwoWay}" />
+                    <RadioButton Style="{StaticResource OptionRadioStyle}"
+                                 Content="DWFx"
+                                 GroupName="PublishFormat"
+                                 IsChecked="{Binding IsDwfxFormat, Mode=TwoWay}" />
+                </StackPanel>
+            </StackPanel>
+        </Expander>
+
+        <!-- ============ Rinomina multipla ============ -->
+        <Expander Grid.Row="4"
+                  Style="{StaticResource SectionExpanderStyle}"
+                  Header="RINOMINA MULTIPLA"
+                  IsExpanded="False"
+                  Margin="0,8,0,0">
+            <StackPanel>
+
+                <TextBlock Style="{StaticResource SecondaryTextStyle}"
+                           Text="{Binding BatchModeHint}"
                            TextWrapping="Wrap"
                            Margin="0,0,0,8" />
 
@@ -190,20 +246,35 @@
                              Text="{Binding BatchFilter, UpdateSourceTrigger=PropertyChanged}" />
                 </Grid>
 
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <!-- WrapPanel: se la palette e' stretta i pulsanti vanno a capo da soli
+                     invece di uscire dal bordo. -->
+                <WrapPanel Margin="0,0,0,8">
                     <RadioButton Style="{StaticResource OptionRadioStyle}"
-                                 Content="Prefisso"
+                                 Content="Aggiungi prefisso"
+                                 Margin="0,0,12,6"
                                  GroupName="BatchMode"
                                  IsChecked="{Binding IsPrefixMode, Mode=TwoWay}" />
                     <RadioButton Style="{StaticResource OptionRadioStyle}"
-                                 Content="Suffisso"
+                                 Content="Aggiungi suffisso"
+                                 Margin="0,0,12,6"
                                  GroupName="BatchMode"
                                  IsChecked="{Binding IsSuffixMode, Mode=TwoWay}" />
                     <RadioButton Style="{StaticResource OptionRadioStyle}"
+                                 Content="Togli prefisso"
+                                 Margin="0,0,12,6"
+                                 GroupName="BatchMode"
+                                 IsChecked="{Binding IsRemovePrefixMode, Mode=TwoWay}" />
+                    <RadioButton Style="{StaticResource OptionRadioStyle}"
+                                 Content="Togli suffisso"
+                                 Margin="0,0,12,6"
+                                 GroupName="BatchMode"
+                                 IsChecked="{Binding IsRemoveSuffixMode, Mode=TwoWay}" />
+                    <RadioButton Style="{StaticResource OptionRadioStyle}"
                                  Content="Trova/Sostituisci"
+                                 Margin="0,0,12,6"
                                  GroupName="BatchMode"
                                  IsChecked="{Binding IsFindReplaceMode, Mode=TwoWay}" />
-                </StackPanel>
+                </WrapPanel>
 
                 <Grid Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
@@ -244,10 +315,10 @@
                         MinWidth="90"
                         Command="{Binding ApplyBatchRenameCommand}" />
             </StackPanel>
-        </Border>
+        </Expander>
 
         <!-- ============ Riga di stato ============ -->
-        <TextBlock Grid.Row="4"
+        <TextBlock Grid.Row="5"
                    Style="{StaticResource SecondaryTextStyle}"
                    Text="{Binding StatusMessage}"
                    TextWrapping="Wrap"

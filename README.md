@@ -49,7 +49,21 @@ e dimensione fra una sessione e l'altra.
 | Nuovo layout | bottone "Nuovo layout": lo crea e lo mette subito in rinomina |
 | Impostazioni di pagina | tasto destro → apre la finestra nativa di AutoCAD |
 | Stampare / pubblicare | bottoni "Stampa tutti" / "Pubblica tutti", oppure tasto destro sui selezionati |
-| Rinomina multipla | pannello in basso: prefisso, suffisso o trova/sostituisci, con filtro |
+| Rinomina multipla | pannello in basso: aggiungi/togli prefisso o suffisso, trova/sostituisci, con filtro |
+
+I due pannelli in fondo ("Stampa e pubblicazione" e "Rinomina multipla") si aprono
+e si chiudono cliccando sul titolo, per tenere la palette compatta.
+
+### Stampa e pubblicazione
+
+- Viene creato **un file separato per ogni layout**, chiamato come il layout
+  (il layout "Tavola 01" produce `Tavola 01.pdf`).
+- I file finiscono nella **cartella** indicata nel pannello: si puo' scrivere a mano
+  o scegliere con "Sfoglia...". Se non la tocchi, viene proposta la cartella del disegno.
+- Formato selezionabile: PDF, DWF o DWFx.
+- La pubblicazione parte **in background**: AutoCAD resta subito utilizzabile e la
+  stampa prosegue per conto suo (compare l'icona della stampante in basso a destra).
+- Prima di partire vieni sempre avvisato di quanti e quali file verranno creati.
 
 La palette si aggiorna da sola anche quando i layout vengono modificati con i
 comandi nativi di AutoCAD o quando si cambia disegno attivo.

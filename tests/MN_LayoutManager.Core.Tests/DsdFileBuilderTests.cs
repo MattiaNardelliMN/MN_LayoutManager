@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using MN_LayoutManager.Core;
 using Xunit;
 
@@ -9,7 +8,8 @@ namespace MN_LayoutManager.Core.Tests
     /// Verifica la generazione del file DSD, cioe' l'elenco di fogli che il comando
     /// nativo -PUBLISH di AutoCAD legge per stampare/pubblicare piu' layout in un colpo solo.
     /// In parole semplici: controlla che nel file finiscano tutti e soli i layout scelti,
-    /// e che il plugin si fermi con un messaggio chiaro quando manca qualcosa.
+    /// che sia chiesto UN FILE PER OGNI LAYOUT nella cartella indicata, e che il plugin si
+    /// fermi con un messaggio chiaro quando manca qualcosa.
     /// </summary>
     public class DsdFileBuilderTests
     {
@@ -17,10 +17,9 @@ namespace MN_LayoutManager.Core.Tests
             string dwg = @"C:\Disegni\Progetto.dwg",
             string[] layouts = null,
             PublishOutputKind kind = PublishOutputKind.Pdf,
-            string output = @"C:\Disegni\Progetto.pdf",
-            bool multiSheet = true)
+            string folder = @"C:\Stampe")
         {
-            return new PublishRequest(dwg, layouts ?? new[] { "Tavola1", "Tavola2" }, kind, output, multiSheet);
+            return new PublishRequest(dwg, layouts ?? new[] { "Tavola1", "Tavola2" }, kind, folder);
         }
 
         [Fact]
@@ -37,17 +36,14 @@ namespace MN_LayoutManager.Core.Tests
             Assert.Contains("Nessun layout", error, StringComparison.OrdinalIgnoreCase);
         }
 
-        [Fact]
-        public void FileDiDestinazioneMancante_VieneSegnalatoSoloQuandoServe()
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void CartellaDiDestinazioneMancante_VieneSegnalata(string folder)
         {
-            Assert.False(DsdFileBuilder.TryBuild(Richiesta(output: null), out _, out string error));
-            Assert.Contains("destinazione", error, StringComparison.OrdinalIgnoreCase);
-
-            // Stampando sul plotter delle impostazioni di pagina non serve nessun file.
-            Assert.True(DsdFileBuilder.TryBuild(
-                Richiesta(kind: PublishOutputKind.PageSetupPlotter, output: null),
-                out _,
-                out _));
+            Assert.False(DsdFileBuilder.TryBuild(Richiesta(folder: folder), out _, out string error));
+            Assert.Contains("cartella", error, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -58,6 +54,53 @@ namespace MN_LayoutManager.Core.Tests
             Assert.Contains("Layout=Tavola1", dsd, StringComparison.Ordinal);
             Assert.Contains("Layout=Tavola2", dsd, StringComparison.Ordinal);
             Assert.Equal(2, ContaOccorrenze(dsd, "[DWF6Sheet:"));
+        }
+
+        [Fact]
+        public void VieneChiestoUnFileSeparatoPerOgniLayout()
+        {
+            Assert.True(DsdFileBuilder.TryBuild(Richiesta(), out string dsd, out _));
+
+            // MULTISHEET=0 significa "un file per foglio"; con 1 sarebbe un unico PDF
+            // multipagina, che non e' quello che vogliamo.
+            Assert.Contains("MULTISHEET=0", dsd, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void IlNomeDelFileProdottoEIlNomeDelLayout()
+        {
+            // Il titolo del foglio nel DSD diventa il nome del file su disco.
+            Assert.True(DsdFileBuilder.TryBuild(Richiesta(layouts: new[] { "Tavola 01" }), out string dsd, out _));
+
+            Assert.Contains("[DWF6Sheet:Tavola 01]", dsd, StringComparison.Ordinal);
+            Assert.Equal("Tavola 01.pdf", DsdFileBuilder.GetOutputFileName(Richiesta(), "Tavola 01"));
+        }
+
+        [Fact]
+        public void CaratteriVietatiNeiNomiDiFileVengonoSostituiti()
+        {
+            // Un layout puo' chiamarsi in modi che Windows non accetta come nome di file:
+            // senza questa pulizia la stampa fallirebbe senza spiegazioni.
+            Assert.Equal("Tavola-01.pdf", DsdFileBuilder.GetOutputFileName(Richiesta(), "Tavola/01"));
+            Assert.Equal("Sez-A-A.pdf", DsdFileBuilder.GetOutputFileName(Richiesta(), "Sez:A\\A"));
+        }
+
+        [Fact]
+        public void LaCartellaDiDestinazioneFinisceNelDsd()
+        {
+            Assert.True(DsdFileBuilder.TryBuild(Richiesta(folder: @"C:\Stampe"), out string dsd, out _));
+
+            Assert.Contains(@"OUT=C:\Stampe\", dsd, StringComparison.Ordinal);
+            Assert.Contains(@"DWF=C:\Stampe\", dsd, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void UnaCartellaCheFinisceGiaConLaBarraNonNeRicevePiuDiUna()
+        {
+            Assert.True(DsdFileBuilder.TryBuild(Richiesta(folder: @"C:\Stampe\"), out string dsd, out _));
+
+            Assert.Contains(@"OUT=C:\Stampe\", dsd, StringComparison.Ordinal);
+            Assert.DoesNotContain(@"OUT=C:\Stampe\\", dsd, StringComparison.Ordinal);
         }
 
         [Fact]
@@ -77,8 +120,8 @@ namespace MN_LayoutManager.Core.Tests
                 out string dsd,
                 out _));
 
-            Assert.Contains("[DWF6Sheet:Progetto-Tavola1]", dsd, StringComparison.Ordinal);
-            Assert.Contains("[DWF6Sheet:Progetto-Tavola1 (2)]", dsd, StringComparison.Ordinal);
+            Assert.Contains("[DWF6Sheet:Tavola1]", dsd, StringComparison.Ordinal);
+            Assert.Contains("[DWF6Sheet:Tavola1 (2)]", dsd, StringComparison.Ordinal);
         }
 
         [Theory]
@@ -88,22 +131,18 @@ namespace MN_LayoutManager.Core.Tests
         [InlineData(PublishOutputKind.Pdf, "Type=6")]
         public void IlTipoDiUscitaFinisceNelCampoType(PublishOutputKind kind, string atteso)
         {
-            Assert.True(DsdFileBuilder.TryBuild(
-                Richiesta(kind: kind, output: @"C:\out.pdf"),
-                out string dsd,
-                out _));
+            Assert.True(DsdFileBuilder.TryBuild(Richiesta(kind: kind), out string dsd, out _));
 
             Assert.Contains(atteso, dsd, StringComparison.Ordinal);
         }
 
         [Theory]
-        [InlineData(true, "MULTISHEET=1")]
-        [InlineData(false, "MULTISHEET=0")]
-        public void UnSoloFileOppureUnoPerLayout(bool multiSheet, string atteso)
+        [InlineData(PublishOutputKind.Pdf, ".pdf")]
+        [InlineData(PublishOutputKind.Dwf, ".dwf")]
+        [InlineData(PublishOutputKind.Dwfx, ".dwfx")]
+        public void LEstensioneDeiFileSegueIlFormatoScelto(PublishOutputKind kind, string attesa)
         {
-            Assert.True(DsdFileBuilder.TryBuild(Richiesta(multiSheet: multiSheet), out string dsd, out _));
-
-            Assert.Contains(atteso, dsd, StringComparison.Ordinal);
+            Assert.Equal(attesa, Richiesta(kind: kind).OutputExtension);
         }
 
         [Fact]
@@ -121,6 +160,7 @@ namespace MN_LayoutManager.Core.Tests
         public void RichiestaNulla_SollevaEccezioneChiara()
         {
             Assert.Throws<ArgumentNullException>(() => DsdFileBuilder.TryBuild(null, out _, out _));
+            Assert.Throws<ArgumentNullException>(() => DsdFileBuilder.GetOutputFileName(null, "Tavola1"));
         }
 
         private static int ContaOccorrenze(string testo, string cercato)

@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
@@ -9,43 +8,45 @@ namespace MN_LayoutManager.Core
     {
         /// <summary>
         /// "Stampa": manda ogni layout al plotter/stampante indicato nelle sue
-        /// impostazioni di pagina. Non produce un file.
+        /// impostazioni di pagina. Se quel dispositivo stampa su file, i file finiscono
+        /// nella cartella di destinazione indicata.
         /// </summary>
         PageSetupPlotter,
 
-        /// <summary>Produce un file PDF.</summary>
+        /// <summary>Produce file PDF.</summary>
         Pdf,
 
-        /// <summary>Produce un file DWF.</summary>
+        /// <summary>Produce file DWF.</summary>
         Dwf,
 
-        /// <summary>Produce un file DWFx.</summary>
+        /// <summary>Produce file DWFx.</summary>
         Dwfx,
     }
 
     /// <summary>
-    /// Descrive una stampa o pubblicazione batch: quale disegno, quali layout, cosa produrre.
-    /// Oggetto di soli dati.
+    /// Descrive una stampa o pubblicazione batch: quale disegno, quali layout,
+    /// cosa produrre e in quale cartella.
     /// </summary>
+    /// <remarks>
+    /// Viene sempre prodotto <b>un file separato per ogni layout</b>, non un unico
+    /// documento multipagina.
+    /// </remarks>
     public sealed class PublishRequest
     {
         /// <summary>Crea la richiesta.</summary>
         /// <param name="drawingPath">Percorso completo del file DWG.</param>
         /// <param name="layoutNames">Layout da stampare/pubblicare, nell'ordine voluto.</param>
         /// <param name="outputKind">Cosa produrre.</param>
-        /// <param name="outputFilePath">File di destinazione (ignorato per la stampa su plotter).</param>
-        /// <param name="multiSheet">true = un unico file con tutte le pagine; false = un file per layout.</param>
+        /// <param name="outputFolder">Cartella in cui finiscono i file prodotti.</param>
         public PublishRequest(
             string drawingPath,
             IEnumerable<string> layoutNames,
             PublishOutputKind outputKind,
-            string outputFilePath,
-            bool multiSheet)
+            string outputFolder)
         {
             DrawingPath = drawingPath;
             OutputKind = outputKind;
-            OutputFilePath = outputFilePath;
-            MultiSheet = multiSheet;
+            OutputFolder = outputFolder;
 
             var names = new List<string>();
             if (layoutNames != null)
@@ -65,13 +66,24 @@ namespace MN_LayoutManager.Core
         /// <summary>Tipo di uscita.</summary>
         public PublishOutputKind OutputKind { get; }
 
-        /// <summary>File prodotto (non usato quando si stampa sul plotter delle impostazioni di pagina).</summary>
-        public string OutputFilePath { get; }
+        /// <summary>Cartella di destinazione dei file prodotti.</summary>
+        public string OutputFolder { get; }
 
-        /// <summary>true = un solo file multipagina.</summary>
-        public bool MultiSheet { get; }
-
-        /// <summary>true quando l'uscita e' un file e quindi serve un percorso di destinazione.</summary>
-        public bool RequiresOutputFile => OutputKind != PublishOutputKind.PageSetupPlotter;
+        /// <summary>Estensione dei file prodotti, punto incluso.</summary>
+        public string OutputExtension
+        {
+            get
+            {
+                switch (OutputKind)
+                {
+                    case PublishOutputKind.Dwf:
+                        return ".dwf";
+                    case PublishOutputKind.Dwfx:
+                        return ".dwfx";
+                    default:
+                        return ".pdf";
+                }
+            }
+        }
     }
 }

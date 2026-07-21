@@ -40,9 +40,7 @@ namespace MN_LayoutManager.Core
 
             if (string.IsNullOrEmpty(request.Value))
             {
-                errors.Add(request.Mode == BatchRenameMode.FindReplace
-                    ? "Indica il testo da cercare."
-                    : "Indica il testo da aggiungere.");
+                errors.Add(DescribeMissingValue(request.Mode));
                 return new BatchRenamePlan(steps, errors, false);
             }
 
@@ -118,6 +116,20 @@ namespace MN_LayoutManager.Core
             return name.IndexOf(request.Filter, request.Comparison) >= 0;
         }
 
+        private static string DescribeMissingValue(BatchRenameMode mode)
+        {
+            switch (mode)
+            {
+                case BatchRenameMode.FindReplace:
+                    return "Indica il testo da cercare.";
+                case BatchRenameMode.RemovePrefix:
+                case BatchRenameMode.RemoveSuffix:
+                    return "Indica il testo da togliere.";
+                default:
+                    return "Indica il testo da aggiungere.";
+            }
+        }
+
         private static string ApplyMode(string original, BatchRenameRequest request)
         {
             switch (request.Mode)
@@ -127,6 +139,18 @@ namespace MN_LayoutManager.Core
 
                 case BatchRenameMode.AddSuffix:
                     return original + request.Value;
+
+                // Nelle rimozioni si tocca il nome SOLO se inizia (o finisce) davvero con
+                // il testo indicato: cosi' i layout che non c'entrano restano come sono.
+                case BatchRenameMode.RemovePrefix:
+                    return original.StartsWith(request.Value, request.Comparison)
+                        ? original.Substring(request.Value.Length)
+                        : original;
+
+                case BatchRenameMode.RemoveSuffix:
+                    return original.EndsWith(request.Value, request.Comparison)
+                        ? original.Substring(0, original.Length - request.Value.Length)
+                        : original;
 
                 case BatchRenameMode.FindReplace:
                     return ReplaceAll(original, request.Value, request.ReplacementValue ?? string.Empty, request.Comparison);

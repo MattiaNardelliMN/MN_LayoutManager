@@ -134,3 +134,66 @@
 - Invariato rispetto al blocco precedente: la prova a mano dentro AutoCAD 2024.
 
 ---
+
+## 2026-07-21 - Correzioni dopo la prima prova in AutoCAD
+
+Dopo aver provato il plugin sono arrivate sei richieste di modifica. Ecco cosa e'
+stato fatto e perche'.
+
+**Cosa ho fatto:**
+1. **Pubblicazione in background.** Prima AutoCAD restava bloccato durante la stampa.
+   Ora la variabile BACKGROUNDPLOT viene messa a 2 (pubblicazione in secondo piano) e
+   subito dopo rimessa al valore che aveva, per non cambiare le impostazioni personali.
+2. **Un file separato per ogni layout**, non piu' un unico PDF multipagina. Il file
+   prende il nome del layout: "Tavola 01" produce "Tavola 01.pdf". I caratteri che
+   Windows non ammette nei nomi di file vengono sostituiti con un trattino.
+3. **Cartella di destinazione** per stampa e pubblicazione: si scrive a mano o si sceglie
+   con "Sfoglia...". Se non viene indicata, si propone la cartella del disegno. La
+   cartella viene creata se non esiste.
+4. **Trascinamento che non aggiornava le schede in basso.** Era un vero difetto:
+   cambiare l'ordine delle schede modifica il disegno ma non genera nessun evento,
+   quindi la barra in basso non se ne accorgeva e restava indietro finche' non si
+   cambiava layout. Ora, dopo il riordino, si "riconferma" il layout corrente tramite
+   il suo identificativo interno: questo fa aggiornare la barra senza cambiare cosa
+   sta guardando l'utente.
+5. **Impostazioni di pagina**: verificato ispezionando le API di AutoCAD 2024 che NON
+   esiste nessun comando per aprire direttamente la finestra "Modifica impostazioni
+   pagina". Su scelta dell'utente resta il gestore PAGESETUP (un clic in piu', ma
+   nessun rischio di stampare per sbaglio come sarebbe con la finestra PLOT).
+6. **Rimozione di prefisso e suffisso** nella rinomina multipla. Toglie il testo SOLO
+   ai layout che iniziano (o finiscono) davvero cosi': gli altri non vengono toccati.
+
+**Migliorie arrivate per strada:**
+- **La copia di un layout ora e' immediata.** Ispezionando le API ho scoperto che
+  esiste `LayoutManager.CopyLayout(nome, nuovoNome)`: prima si pilotava il comando
+  nativo LAYOUT, che finiva in coda e faceva comparire la copia con un attimo di
+  ritardo. Ora la copia appare subito e viene anche selezionata.
+- **I due pannelli in fondo si possono chiudere** cliccando sul titolo, cosi' la
+  palette non e' costretta a essere alta mezzo schermo.
+- **Corretto un errore che avrebbe fatto fallire il riordino**: l'aggiornamento delle
+  schede modifica il documento e va quindi eseguito dentro un blocco del documento,
+  altrimenti AutoCAD segnala un errore di violazione del blocco.
+
+**Decisioni importanti (e perche'):**
+- Prima di scrivere codice ho **ispezionato le DLL di AutoCAD 2024** con la reflection,
+  invece di andare a tentativi. E' cosi' che ho trovato `CopyLayout`, `SetCurrentLayoutId`
+  e `UpdateScreen`, e che ho potuto rispondere con certezza sulla finestra delle
+  impostazioni di pagina.
+- La finestra "scegli cartella" arriva da Windows Forms perche' WPF su .NET Framework
+  4.8 non ne ha una. E' isolata in un unico file (`UI/FolderPicker.cs`) cosi' non
+  contamina il resto.
+
+**Verificato con:**
+- `dotnet build` su tutta la soluzione: 0 errori, 0 avvisi.
+- `dotnet test`: 91 test (erano 76), tutti passati. I 15 nuovi coprono la rimozione di
+  prefisso/suffisso, la cartella di destinazione, il file separato per layout e la
+  pulizia dei caratteri vietati nei nomi di file.
+
+**Cosa resta da verificare a mano dentro AutoCAD:**
+- Che il trascinamento aggiorni davvero la barra delle schede (punto 4): e' la
+  correzione che non posso provare in automatico.
+- Che i PDF separati escano davvero, con il nome giusto, nella cartella indicata:
+  i valori del file DSD (MULTISHEET=0, OUT=, Type=) sono quelli documentati ma
+  vanno confermati sul campo.
+
+---

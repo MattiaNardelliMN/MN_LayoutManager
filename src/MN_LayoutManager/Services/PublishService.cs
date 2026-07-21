@@ -4,35 +4,37 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
-using AcadApp = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 using MN_LayoutManager.Core;
 using MN_LayoutManager.Infrastructure;
+using AcadApp = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 
 namespace MN_LayoutManager.Services
 {
     /// <summary>
-    /// Stampa e pubblicazione di piu' layout in un colpo solo.
+    /// Stampa e pubblicazione di piu' layout in un colpo solo, un file per layout.
     /// Scrive un file DSD temporaneo (l'elenco dei fogli) e lo passa al comando nativo
     /// -PUBLISH di AutoCAD, che sa gia' gestire code di stampa, plotter e PDF.
     /// </summary>
     public static class PublishService
     {
         private const string TempFolderName = "MN_LayoutManager";
+        private const string OperationName = "Stampa/Pubblica";
 
         /// <summary>
         /// Prepara ed avvia la stampa/pubblicazione dei layout indicati.
+        /// La pubblicazione parte in background: AutoCAD resta subito utilizzabile.
         /// </summary>
         /// <param name="document">Disegno da cui pubblicare.</param>
         /// <param name="layoutNames">Layout scelti, nell'ordine voluto.</param>
         /// <param name="outputKind">Stampa sul plotter delle impostazioni di pagina, o file PDF/DWF.</param>
-        /// <param name="outputFilePath">File di destinazione (solo per PDF/DWF).</param>
+        /// <param name="outputFolder">Cartella in cui devono finire i file prodotti.</param>
         /// <param name="error">Messaggio in italiano se non si e' potuto procedere.</param>
-        /// <returns>true se la pubblicazione e' stata messa in coda ad AutoCAD.</returns>
+        /// <returns>true se la pubblicazione e' stata avviata.</returns>
         public static bool TryPublish(
             Document document,
             IReadOnlyList<string> layoutNames,
             PublishOutputKind outputKind,
-            string outputFilePath,
+            string outputFolder,
             out string error)
         {
             if (document == null)
@@ -40,15 +42,18 @@ namespace MN_LayoutManager.Services
                 throw new ArgumentNullException(nameof(document));
             }
 
-            string drawingPath = GetSavedDrawingPath(document);
             var request = new PublishRequest(
-                drawingPath,
+                GetSavedDrawingPath(document),
                 layoutNames,
                 outputKind,
-                outputFilePath,
-                multiSheet: true);
+                outputFolder);
 
             if (!DsdFileBuilder.TryBuild(request, out string dsdContent, out error))
+            {
+                return false;
+            }
+
+            if (!TryPrepareOutputFolder(request.OutputFolder, out error))
             {
                 return false;
             }
@@ -61,28 +66,88 @@ namespace MN_LayoutManager.Services
             catch (IOException ex)
             {
                 error = "Non riesco a creare il file temporaneo per la stampa: " + ex.Message;
-                PluginLog.Error("Stampa/Pubblica", error, ex);
+                PluginLog.Error(OperationName, error, ex);
                 return false;
             }
             catch (UnauthorizedAccessException ex)
             {
                 error = "Non ho i permessi per creare il file temporaneo per la stampa.";
-                PluginLog.Error("Stampa/Pubblica", error, ex);
+                PluginLog.Error(OperationName, error, ex);
                 return false;
             }
 
             PluginLog.Info(
-                "Stampa/Pubblica",
+                OperationName,
                 string.Format(
                     CultureInfo.InvariantCulture,
-                    "{0} layout, destinazione {1}, elenco fogli in {2}",
+                    "{0} layout -> {1} in '{2}', elenco fogli in {3}",
                     request.LayoutNames.Count,
                     outputKind,
+                    request.OutputFolder,
                     dsdPath));
 
             AcadCommandRunner.PublishFromDsd(document, dsdPath);
             error = null;
             return true;
+        }
+
+        /// <summary>
+        /// Controlla che la cartella di destinazione sia utilizzabile, creandola se non esiste.
+        /// </summary>
+        /// <param name="folder">Cartella scelta dall'utente.</param>
+        /// <param name="error">Messaggio in italiano se non e' utilizzabile.</param>
+        /// <returns>true se si puo' scriverci dentro.</returns>
+        public static bool TryPrepareOutputFolder(string folder, out string error)
+        {
+            if (string.IsNullOrWhiteSpace(folder))
+            {
+                error = "Indica la cartella di destinazione delle stampe.";
+                return false;
+            }
+
+            try
+            {
+                if (!Path.IsPathRooted(folder))
+                {
+                    error = "La cartella di destinazione deve essere un percorso completo, per esempio C:\\Stampe.";
+                    return false;
+                }
+
+                if (!Directory.Exists(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                    PluginLog.Info(OperationName, "Creata la cartella di destinazione: " + folder);
+                }
+
+                error = null;
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                error = "Il percorso della cartella di destinazione non e' valido.";
+                return false;
+            }
+            catch (NotSupportedException)
+            {
+                error = "Il percorso della cartella di destinazione non e' valido.";
+                return false;
+            }
+            catch (PathTooLongException)
+            {
+                error = "Il percorso della cartella di destinazione e' troppo lungo.";
+                return false;
+            }
+            catch (IOException ex)
+            {
+                error = "Non riesco ad usare la cartella di destinazione: " + ex.Message;
+                PluginLog.Error(OperationName, error, ex);
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                error = "Non hai i permessi per scrivere nella cartella di destinazione.";
+                return false;
+            }
         }
 
         /// <summary>
@@ -122,21 +187,14 @@ namespace MN_LayoutManager.Services
         }
 
         /// <summary>
-        /// Propone un nome di file di destinazione accanto al disegno
-        /// (es. Progetto.dwg -> Progetto.pdf).
+        /// Cartella proposta come destinazione: quella del disegno aperto.
         /// </summary>
         /// <param name="document">Disegno di partenza.</param>
-        /// <param name="extension">Estensione desiderata, punto incluso.</param>
-        /// <returns>Percorso proposto, o stringa vuota se il disegno non e' salvato.</returns>
-        public static string SuggestOutputPath(Document document, string extension)
+        /// <returns>Percorso della cartella, o stringa vuota se il disegno non e' salvato.</returns>
+        public static string SuggestOutputFolder(Document document)
         {
             string drawingPath = GetSavedDrawingPath(document);
-            if (string.IsNullOrEmpty(drawingPath))
-            {
-                return string.Empty;
-            }
-
-            return Path.ChangeExtension(drawingPath, extension);
+            return string.IsNullOrEmpty(drawingPath) ? string.Empty : Path.GetDirectoryName(drawingPath);
         }
 
         private static string WriteTemporaryDsd(string content)

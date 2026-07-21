@@ -20,6 +20,12 @@ namespace MN_LayoutManager.Services
     /// </remarks>
     public static class AcadCommandRunner
     {
+        /// <summary>
+        /// Valore della variabile BACKGROUNDPLOT che fa pubblicare in background
+        /// (stampa in primo piano, pubblicazione in secondo piano).
+        /// </summary>
+        private const int BackgroundPublishing = 2;
+
         /// <summary>Manda un'espressione AutoLISP al disegno indicato.</summary>
         /// <param name="document">Disegno destinatario.</param>
         /// <param name="lispExpression">Espressione AutoLISP completa, parentesi incluse.</param>
@@ -37,35 +43,6 @@ namespace MN_LayoutManager.Services
 
             // Lo spazio finale fa da Invio: senza, l'espressione resta li' in attesa.
             document.SendStringToExecute(lispExpression + " ", activate: true, wrapUpInactiveDoc: false, echoCommand: false);
-        }
-
-        /// <summary>
-        /// Duplica un layout con tutto il suo contenuto usando l'opzione Copy del comando
-        /// nativo LAYOUT: riusa la logica gia' collaudata di AutoCAD invece di ricopiare
-        /// a mano finestre, entita' e impostazioni di stampa.
-        /// </summary>
-        /// <param name="document">Disegno su cui agire.</param>
-        /// <param name="sourceLayoutName">Layout da copiare.</param>
-        /// <param name="newLayoutName">Nome della copia.</param>
-        public static void CopyLayout(Document document, string sourceLayoutName, string newLayoutName)
-        {
-            if (string.IsNullOrWhiteSpace(sourceLayoutName))
-            {
-                throw new ArgumentException("Manca il layout da copiare.", nameof(sourceLayoutName));
-            }
-
-            if (string.IsNullOrWhiteSpace(newLayoutName))
-            {
-                throw new ArgumentException("Manca il nome della copia.", nameof(newLayoutName));
-            }
-
-            string lisp = string.Format(
-                CultureInfo.InvariantCulture,
-                "(command \"_.LAYOUT\" \"_Copy\" {0} {1})",
-                ToLispString(sourceLayoutName),
-                ToLispString(newLayoutName));
-
-            SendLisp(document, lisp);
         }
 
         /// <summary>
@@ -90,15 +67,18 @@ namespace MN_LayoutManager.Services
                 throw new ArgumentException("Manca il percorso del file DSD.", nameof(dsdFilePath));
             }
 
-            // FILEDIA=0 evita che AutoCAD apra la finestra di scelta file (bloccherebbe tutto);
-            // BACKGROUNDPLOT=0 fa pubblicare in primo piano, cosi' eventuali errori si vedono.
-            // I due valori originali vengono salvati e rimessi a posto alla fine.
+            // FILEDIA=0 evita che AutoCAD apra la finestra di scelta file (bloccherebbe tutto).
+            // BACKGROUNDPLOT=2 fa pubblicare IN BACKGROUND: AutoCAD torna subito utilizzabile
+            // e la stampa prosegue per conto suo (l'icona della stampante appare in basso a destra).
+            // I due valori originali vengono salvati e rimessi a posto alla fine, per non
+            // cambiare le impostazioni personali dell'utente.
             string lisp = string.Format(
                 CultureInfo.InvariantCulture,
-                "(progn (setq *lmp-filedia* (getvar \"FILEDIA\") *lmp-bgplot* (getvar \"BACKGROUNDPLOT\"))" +
-                " (setvar \"FILEDIA\" 0) (setvar \"BACKGROUNDPLOT\" 0)" +
-                " (command \"_.-PUBLISH\" {0})" +
-                " (setvar \"FILEDIA\" *lmp-filedia*) (setvar \"BACKGROUNDPLOT\" *lmp-bgplot*) (princ))",
+                "(progn (setq *mnlm-filedia* (getvar \"FILEDIA\") *mnlm-bgplot* (getvar \"BACKGROUNDPLOT\"))" +
+                " (setvar \"FILEDIA\" 0) (setvar \"BACKGROUNDPLOT\" {0})" +
+                " (command \"_.-PUBLISH\" {1})" +
+                " (setvar \"FILEDIA\" *mnlm-filedia*) (setvar \"BACKGROUNDPLOT\" *mnlm-bgplot*) (princ))",
+                BackgroundPublishing,
                 ToLispString(dsdFilePath));
 
             SendLisp(document, lisp);

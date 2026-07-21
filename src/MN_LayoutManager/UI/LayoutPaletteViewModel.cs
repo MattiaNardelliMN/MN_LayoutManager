@@ -4,11 +4,11 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
 using MN_LayoutManager.Core;
 using MN_LayoutManager.Infrastructure;
 using MN_LayoutManager.Services;
-using Microsoft.Win32;
 
 namespace MN_LayoutManager.UI
 {
@@ -19,10 +19,8 @@ namespace MN_LayoutManager.UI
     /// </summary>
     public sealed class LayoutPaletteViewModel : ObservableObject, IDisposable
     {
-        private const string PdfExtension = ".pdf";
-        private const string DwfExtension = ".dwf";
-        private const string DwfxExtension = ".dwfx";
         private const int MaxCopyNameAttempts = 1000;
+        private const int MaxLayoutsListedInConfirm = 8;
 
         private readonly List<RelayCommand> _commands = new List<RelayCommand>();
 
@@ -31,6 +29,9 @@ namespace MN_LayoutManager.UI
         private string _copiedLayoutName;
         private bool _isRefreshing;
         private bool _disposed;
+
+        private string _outputFolder = string.Empty;
+        private PublishOutputKind _publishFormat = PublishOutputKind.Pdf;
 
         private string _batchFilter = string.Empty;
         private string _batchValue = string.Empty;
@@ -55,6 +56,7 @@ namespace MN_LayoutManager.UI
             PublishSelectedCommand = Register(new RelayCommand(() => Publish(onlySelected: true), () => SelectedCount > 0));
             PublishAllCommand = Register(new RelayCommand(() => Publish(onlySelected: false), () => Layouts.Count > 0));
             ApplyBatchRenameCommand = Register(new RelayCommand(ApplyBatchRename, () => Layouts.Count > 0));
+            BrowseOutputFolderCommand = Register(new RelayCommand(BrowseOutputFolder));
 
             LayoutChangeNotifier.LayoutsChanged += OnLayoutsChanged;
             Refresh();
@@ -76,6 +78,40 @@ namespace MN_LayoutManager.UI
             get => _documentName;
             private set => SetProperty(ref _documentName, value);
         }
+
+        /// <summary>
+        /// Cartella in cui finiscono le stampe e le pubblicazioni.
+        /// Si puo' scrivere a mano o scegliere col bottone "Sfoglia".
+        /// </summary>
+        public string OutputFolder
+        {
+            get => _outputFolder;
+            set => SetProperty(ref _outputFolder, value);
+        }
+
+        /// <summary>Formato PDF selezionato per la pubblicazione.</summary>
+        public bool IsPdfFormat
+        {
+            get => _publishFormat == PublishOutputKind.Pdf;
+            set => SetPublishFormat(value, PublishOutputKind.Pdf);
+        }
+
+        /// <summary>Formato DWF selezionato per la pubblicazione.</summary>
+        public bool IsDwfFormat
+        {
+            get => _publishFormat == PublishOutputKind.Dwf;
+            set => SetPublishFormat(value, PublishOutputKind.Dwf);
+        }
+
+        /// <summary>Formato DWFx selezionato per la pubblicazione.</summary>
+        public bool IsDwfxFormat
+        {
+            get => _publishFormat == PublishOutputKind.Dwfx;
+            set => SetPublishFormat(value, PublishOutputKind.Dwfx);
+        }
+
+        /// <summary>Apre la finestra di Windows per scegliere la cartella di destinazione.</summary>
+        public RelayCommand BrowseOutputFolderCommand { get; }
 
         /// <summary>Testo del filtro della rinomina multipla ("agisci solo sui nomi che contengono...").</summary>
         public string BatchFilter
@@ -112,6 +148,20 @@ namespace MN_LayoutManager.UI
             set => SetBatchMode(value, BatchRenameMode.AddSuffix);
         }
 
+        /// <summary>Modalita' "rimuovi prefisso" selezionata.</summary>
+        public bool IsRemovePrefixMode
+        {
+            get => _batchMode == BatchRenameMode.RemovePrefix;
+            set => SetBatchMode(value, BatchRenameMode.RemovePrefix);
+        }
+
+        /// <summary>Modalita' "rimuovi suffisso" selezionata.</summary>
+        public bool IsRemoveSuffixMode
+        {
+            get => _batchMode == BatchRenameMode.RemoveSuffix;
+            set => SetBatchMode(value, BatchRenameMode.RemoveSuffix);
+        }
+
         /// <summary>Modalita' "trova e sostituisci" selezionata.</summary>
         public bool IsFindReplaceMode
         {
@@ -130,8 +180,28 @@ namespace MN_LayoutManager.UI
                         return "Prefisso:";
                     case BatchRenameMode.AddSuffix:
                         return "Suffisso:";
+                    case BatchRenameMode.RemovePrefix:
+                    case BatchRenameMode.RemoveSuffix:
+                        return "Da togliere:";
                     default:
                         return "Trova:";
+                }
+            }
+        }
+
+        /// <summary>Spiegazione della modalita' scelta, mostrata sotto i pulsanti.</summary>
+        public string BatchModeHint
+        {
+            get
+            {
+                switch (_batchMode)
+                {
+                    case BatchRenameMode.RemovePrefix:
+                        return "Toglie il testo solo ai layout che iniziano davvero cosi'.";
+                    case BatchRenameMode.RemoveSuffix:
+                        return "Toglie il testo solo ai layout che finiscono davvero cosi'.";
+                    default:
+                        return "Agisce su tutti i layout che passano il filtro, non solo sui selezionati.";
                 }
             }
         }
@@ -206,6 +276,14 @@ namespace MN_LayoutManager.UI
                 }
 
                 DocumentName = Path.GetFileName(document.Name);
+
+                // Alla prima apertura si propone la cartella del disegno: nella maggior
+                // parte dei casi e' quella giusta e l'utente non deve toccare niente.
+                // Se l'ha gia' scelta lui, non viene mai sovrascritta.
+                if (string.IsNullOrWhiteSpace(OutputFolder))
+                {
+                    OutputFolder = PublishService.SuggestOutputFolder(document);
+                }
 
                 IReadOnlyList<LayoutInfo> layouts = null;
                 if (!AcadContext.TryRun("Lettura layout", () => layouts = LayoutService.GetLayouts(document), out string readError))
@@ -363,8 +441,43 @@ namespace MN_LayoutManager.UI
             _batchMode = mode;
             RaisePropertyChanged(nameof(IsPrefixMode));
             RaisePropertyChanged(nameof(IsSuffixMode));
+            RaisePropertyChanged(nameof(IsRemovePrefixMode));
+            RaisePropertyChanged(nameof(IsRemoveSuffixMode));
             RaisePropertyChanged(nameof(IsFindReplaceMode));
             RaisePropertyChanged(nameof(BatchValueLabel));
+            RaisePropertyChanged(nameof(BatchModeHint));
+        }
+
+        private void SetPublishFormat(bool isChecked, PublishOutputKind format)
+        {
+            if (!isChecked || _publishFormat == format)
+            {
+                return;
+            }
+
+            _publishFormat = format;
+            RaisePropertyChanged(nameof(IsPdfFormat));
+            RaisePropertyChanged(nameof(IsDwfFormat));
+            RaisePropertyChanged(nameof(IsDwfxFormat));
+        }
+
+        private void BrowseOutputFolder()
+        {
+            string startingFolder = string.IsNullOrWhiteSpace(OutputFolder)
+                ? SuggestFolderFromDocument()
+                : OutputFolder;
+
+            if (FolderPicker.TryPickFolder("Dove devono finire le stampe?", startingFolder, out string chosen))
+            {
+                OutputFolder = chosen;
+            }
+        }
+
+        private string SuggestFolderFromDocument()
+        {
+            return AcadContext.TryGetActiveDocument(out Document document, out _)
+                ? PublishService.SuggestOutputFolder(document)
+                : string.Empty;
         }
 
         /// <summary>
@@ -529,16 +642,39 @@ namespace MN_LayoutManager.UI
 
             if (!AcadContext.TryRun(
                 "Incolla layout",
-                () => AcadCommandRunner.CopyLayout(document, source, newName),
+                () => LayoutService.CopyLayout(document, source, newName),
                 out string copyError))
             {
                 StatusMessage = copyError;
                 return;
             }
 
-            // Il comando nativo viene messo in coda: l'elenco si aggiorna da solo
-            // appena AutoCAD lo esegue e segnala la creazione del layout.
-            StatusMessage = Msg("Copia di \"{0}\" in corso...", source);
+            StatusMessage = Msg("Creata la copia \"{0}\".", newName);
+            Refresh();
+
+            // La copia viene selezionata cosi' l'utente la trova subito e puo'
+            // trascinarla dove vuole o rinominarla con F2.
+            SelectOnly(newName);
+        }
+
+        /// <summary>Lascia selezionato solo il layout indicato, se esiste ancora.</summary>
+        private void SelectOnly(string layoutName)
+        {
+            LayoutItemViewModel target = Layouts.FirstOrDefault(
+                item => string.Equals(item.Name, layoutName, StringComparison.Ordinal));
+
+            if (target == null)
+            {
+                return;
+            }
+
+            foreach (LayoutItemViewModel item in Layouts)
+            {
+                item.IsSelected = false;
+            }
+
+            target.IsSelected = true;
+            UpdateCommandStates();
         }
 
         private void DeleteSelected()
@@ -636,82 +772,103 @@ namespace MN_LayoutManager.UI
             StatusMessage = Msg("Impostazioni di pagina di \"{0}\".", name);
         }
 
-        private void Print(bool onlySelected)
+        private void Print(bool onlySelected) => StartPublish(onlySelected, PublishOutputKind.PageSetupPlotter);
+
+        private void Publish(bool onlySelected) => StartPublish(onlySelected, _publishFormat);
+
+        /// <summary>
+        /// Percorso comune di stampa e pubblicazione: cambiano solo il formato e il testo
+        /// della conferma, tutto il resto (controlli, cartella, avvio) e' identico.
+        /// </summary>
+        private void StartPublish(bool onlySelected, PublishOutputKind outputKind)
         {
+            bool isPrint = outputKind == PublishOutputKind.PageSetupPlotter;
+            string verb = isPrint ? "stampare" : "pubblicare";
+
             IReadOnlyList<string> names = GetTargetNames(onlySelected);
             if (names.Count == 0)
             {
-                StatusMessage = "Nessun layout da stampare.";
+                StatusMessage = "Nessun layout da " + verb + ".";
                 return;
             }
 
             if (!TryPrepareForPublish(out Document document, out string error))
             {
                 StatusMessage = error;
+                UserDialogs.Warn(error);
                 return;
             }
 
-            string question = Msg(
-                "Stampare {0} layout sul plotter indicato nelle rispettive impostazioni di pagina?",
-                names.Count);
+            if (!PublishService.TryPrepareOutputFolder(OutputFolder, out string folderError))
+            {
+                StatusMessage = folderError;
+                UserDialogs.Warn(folderError);
+                return;
+            }
 
-            if (!UserDialogs.Confirm(question))
+            if (!UserDialogs.Confirm(BuildPublishConfirmation(document, names, outputKind, isPrint)))
             {
                 return;
             }
 
-            if (!PublishService.TryPublish(document, names, PublishOutputKind.PageSetupPlotter, null, out string publishError))
+            if (!PublishService.TryPublish(document, names, outputKind, OutputFolder, out string publishError))
             {
                 StatusMessage = publishError;
                 UserDialogs.Warn(publishError);
                 return;
             }
 
-            StatusMessage = Msg("Stampa di {0} layout avviata.", names.Count);
+            StatusMessage = isPrint
+                ? Msg("Stampa di {0} layout avviata.", names.Count)
+                : Msg("Pubblicazione di {0} layout avviata in background.", names.Count);
         }
 
-        private void Publish(bool onlySelected)
+        /// <summary>
+        /// Costruisce la domanda di conferma elencando i file che verranno creati,
+        /// cosi' l'utente vede prima di confermare cosa otterra' e dove.
+        /// </summary>
+        private string BuildPublishConfirmation(
+            Document document,
+            IReadOnlyList<string> names,
+            PublishOutputKind outputKind,
+            bool isPrint)
         {
-            IReadOnlyList<string> names = GetTargetNames(onlySelected);
-            if (names.Count == 0)
+            var message = new StringBuilder();
+
+            if (isPrint)
             {
-                StatusMessage = "Nessun layout da pubblicare.";
-                return;
+                message.AppendLine(Msg(
+                    "Stampare {0} layout sul plotter indicato nelle rispettive impostazioni di pagina?",
+                    names.Count));
+                message.AppendLine();
+                message.AppendLine("Se il plotter stampa su file, i file finiranno in:");
+                message.AppendLine(OutputFolder);
+                return message.ToString();
             }
 
-            if (!TryPrepareForPublish(out Document document, out string error))
+            var request = new PublishRequest(
+                PublishService.GetSavedDrawingPath(document),
+                names,
+                outputKind,
+                OutputFolder);
+
+            message.AppendLine(Msg("Creare {0} file separati, uno per layout, in:", names.Count));
+            message.AppendLine(OutputFolder);
+            message.AppendLine();
+
+            foreach (string name in names.Take(MaxLayoutsListedInConfirm))
             {
-                StatusMessage = error;
-                return;
+                message.AppendLine("  " + DsdFileBuilder.GetOutputFileName(request, name));
             }
 
-            string suggested = PublishService.SuggestOutputPath(document, PdfExtension);
-            var dialog = new SaveFileDialog
+            if (names.Count > MaxLayoutsListedInConfirm)
             {
-                Title = "Pubblica layout",
-                Filter = "PDF (*.pdf)|*.pdf|DWF (*.dwf)|*.dwf|DWFx (*.dwfx)|*.dwfx",
-                FileName = Path.GetFileName(suggested),
-                InitialDirectory = Path.GetDirectoryName(suggested) ?? string.Empty,
-                OverwritePrompt = true,
-                AddExtension = true,
-                DefaultExt = PdfExtension,
-            };
-
-            if (dialog.ShowDialog() != true)
-            {
-                return;
+                message.AppendLine(Msg("  ... e altri {0}.", names.Count - MaxLayoutsListedInConfirm));
             }
 
-            PublishOutputKind kind = GetOutputKind(dialog.FileName);
-
-            if (!PublishService.TryPublish(document, names, kind, dialog.FileName, out string publishError))
-            {
-                StatusMessage = publishError;
-                UserDialogs.Warn(publishError);
-                return;
-            }
-
-            StatusMessage = Msg("Pubblicazione di {0} layout avviata.", names.Count);
+            message.AppendLine();
+            message.AppendLine("I file gia' esistenti con lo stesso nome verranno sovrascritti.");
+            return message.ToString();
         }
 
         private void ApplyBatchRename()
@@ -829,23 +986,6 @@ namespace MN_LayoutManager.UI
             }
 
             return MsgFixed("{0}_{1}", sourceName, Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture).Substring(0, 6));
-        }
-
-        private static PublishOutputKind GetOutputKind(string fileName)
-        {
-            string extension = Path.GetExtension(fileName);
-
-            if (string.Equals(extension, DwfExtension, StringComparison.OrdinalIgnoreCase))
-            {
-                return PublishOutputKind.Dwf;
-            }
-
-            if (string.Equals(extension, DwfxExtension, StringComparison.OrdinalIgnoreCase))
-            {
-                return PublishOutputKind.Dwfx;
-            }
-
-            return PublishOutputKind.Pdf;
         }
 
         private static string BuildCountMessage(int count)

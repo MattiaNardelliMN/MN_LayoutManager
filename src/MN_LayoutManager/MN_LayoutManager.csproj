@@ -23,6 +23,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Serve solo per la finestra "Scegli cartella": WPF su .NET Framework 4.8
+         non ne ha una propria. -->
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\MN_LayoutManager.Core\MN_LayoutManager.Core.csproj" />
   </ItemGroup>
 
