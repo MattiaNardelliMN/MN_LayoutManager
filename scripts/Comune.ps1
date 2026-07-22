@@ -18,7 +18,6 @@
 #>
 
 # ---------------------------------------------------------------- costanti
-$PluginVersion    = '2.0.0'
 $BundleName       = 'MN_LayoutManager.bundle'
 $PluginAssembly   = 'MN_LayoutManager.dll'
 $CoreAssembly     = 'MN_LayoutManager.Core.dll'
@@ -86,6 +85,36 @@ function Write-Ok([string]$Text) {
     Write-Host "    OK  $Text" -ForegroundColor Green
 }
 
+<#
+.SYNOPSIS
+    Legge la versione del plugin da Directory.Build.props.
+
+.DESCRIPTION
+    La versione e' scritta una volta sola nel file di progetto, cosi' la DLL
+    compilata e il PackageContents.xml dichiarano per forza la stessa cosa.
+
+    Nota: questa funzione serve solo quando si COSTRUISCE il pacchetto. La copia
+    di Comune.ps1 che finisce dentro lo ZIP non la chiama mai, perche' li' il
+    bundle e' gia' pronto.
+#>
+function Get-PluginVersion {
+    [OutputType([string])]
+    param()
+
+    $propsPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'Directory.Build.props'
+
+    if (-not (Test-Path $propsPath)) {
+        Stop-WithError "Non trovo $propsPath, da cui si legge la versione del plugin."
+    }
+
+    $match = [regex]::Match((Get-Content $propsPath -Raw), '<Version>\s*([^<\s]+)\s*</Version>')
+    if (-not $match.Success) {
+        Stop-WithError "In $propsPath manca l'elemento <Version>: non so che versione dichiarare."
+    }
+
+    return $match.Groups[1].Value
+}
+
 function Stop-WithError([string]$Text) {
     Write-Host ''
     Write-Host "!!! $Text" -ForegroundColor Red
@@ -114,6 +143,8 @@ function Stop-WithError([string]$Text) {
 function New-PackageContentsXml {
     [OutputType([string])]
     param()
+
+    $PluginVersion = Get-PluginVersion
 
     $entries = foreach ($t in $Targets) {
         @"

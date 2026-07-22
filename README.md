@@ -150,6 +150,28 @@ Ogni riga dice data, gravita' (INFO / WARN / ERROR), cosa stava facendo il plugi
 e cosa e' andato storto. E' il file da guardare (o da inoltrare) quando qualcosa
 si comporta in modo strano.
 
+### "Il comando GESTIONELAYOUT non viene riconosciuto"
+
+E' il caso piu' insidioso, perche' AutoCAD non da' nessun errore: se non trova una
+versione del plugin adatta al proprio motore, semplicemente non lo carica e non
+dice niente. Per distinguere le due situazioni **guarda se il file di log esiste**:
+
+- **Il log c'e'** → il plugin e' stato caricato. La prima riga di ogni avvio dice
+  quale versione e' entrata in gioco e su quale AutoCAD, per esempio:
+
+  ```
+  [2026-07-22 09:14:03] [INFO] [Avvio] Gestione Layout v2.0.0 | compilato per:
+  AutoCAD 2025-2026 (.NET 8) | motore in esecuzione: .NET 8.0.29 | AutoCAD: 25.1s (LMS Tech)
+  ```
+
+  Il problema quindi non e' l'installazione, ed e' scritto nelle righe successive.
+
+- **Il log non c'e' affatto** → AutoCAD non ha caricato niente. Vuol dire che la
+  sua sigla di versione non rientra in nessuno dei blocchi del
+  `PackageContents.xml`. Serve aggiungere la versione (vedi sopra).
+
+La stessa riga compare anche nella riga di comando di AutoCAD all'avvio.
+
 ## Struttura del progetto
 
 ```

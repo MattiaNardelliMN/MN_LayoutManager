@@ -101,7 +101,8 @@ try {
         $commit = 'sconosciuta'
     }
 
-    $elencoVersioni = ($Targets | ForEach-Object { "  - $($_.Descrizione)" }) -join "`r`n"
+    $PluginVersion  = Get-PluginVersion
+    $elencoVersioni = ($Targets | ForEach-Object { "      . $($_.Descrizione)" }) -join "`r`n"
 
     $readme = Get-Content (Join-Path $TemplateDir 'LEGGIMI.txt') -Raw
     $readme = $readme.Replace('{ANNI}',     $AutoCadYearRange).

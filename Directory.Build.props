@@ -3,6 +3,12 @@
   <!-- Impostazioni comuni a tutti i progetti della soluzione.
        Stanno qui una volta sola per non ripeterle in ogni .csproj. -->
   <PropertyGroup>
+    <!-- Versione del plugin. E' l'UNICO posto in cui e' scritta: gli script di
+         installazione e di pacchetto la leggono da qui (vedi Get-PluginVersion in
+         scripts\Comune.ps1), cosi' la DLL e il PackageContents.xml non possono
+         raccontare due versioni diverse. -->
+    <Version>2.0.0</Version>
+
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
 

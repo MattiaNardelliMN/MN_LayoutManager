@@ -22,11 +22,16 @@ namespace MN_LayoutManager
         /// </summary>
         public void Initialize()
         {
-            PluginLog.Info("Avvio", "Plugin Gestione Layout caricato.");
+            // La riga di diagnostica va scritta PER PRIMA: se qualcosa piu' avanti
+            // fallisce, nel log resta comunque scritto quale versione del plugin era
+            // stata caricata e su quale AutoCAD. E' la prima cosa da guardare quando
+            // il plugin "non si vede".
+            PluginLog.Info("Avvio", BuildInfo.Describe());
             LayoutChangeNotifier.Start();
 
             AcadContext.WriteMessage(
-                "plugin caricato. Digita " + PaletteCommandName + " per aprire la palette.");
+                "plugin caricato (" + BuildInfo.BuiltFor + "). Digita "
+                + PaletteCommandName + " per aprire la palette.");
         }
 
         /// <summary>

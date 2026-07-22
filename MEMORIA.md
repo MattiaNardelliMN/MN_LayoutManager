@@ -440,3 +440,69 @@ lo verificano su tutti e tre i motori.
   prima sessione).
 
 ---
+
+## 22/07/2026 - Rifiniture: diagnostica all'avvio e pacchetto provato davvero
+
+Seguito diretto del blocco precedente. Prima di consegnare il pacchetto ho
+verificato le cose che avevo dato per buone e aggiunto quello che serve per
+capire cosa succede in ufficio, dove io non posso guardare.
+
+**Cosa ho fatto.**
+- **Verificate le sigle di versione** invece di fidarmi del ragionamento.
+  Confermato da fonti Autodesk: **R25.1 = AutoCAD 2026** e **R26.0 = AutoCAD 2027**
+  (per il 2027 la chiave passa da R25.1 a R26.0 ed e' richiesto .NET 10). Era il
+  punto piu' rischioso di tutto il lavoro: se avessi sbagliato quella sigla, il
+  plugin sarebbe rimasto invisibile su AutoCAD 2026 esattamente come prima.
+- **Aggiunta una diagnostica all'avvio** (`Infrastructure\BuildInfo.cs`). Nel log,
+  come prima riga di ogni avvio, ora c'e' scritto quale delle tre versioni e'
+  stata caricata, su che motore .NET gira e che versione di AutoCAD c'e' sotto.
+- **Verificato che l'articolo Autodesk sul 2027** non chiedesse altro: dice di
+  dichiarare `Microsoft.WindowsDesktop.App`, ma ho controllato la DLL compilata e
+  c'e' gia', aggiunto in automatico da `UseWPF`. Nessuna modifica necessaria.
+- **Controllato che nel codice non ci sia niente di non portabile** (COM,
+  `dynamic`, interop): non c'e' nulla, il codice e' pulito da questo punto di vista.
+- **Versione del plugin ora scritta in un posto solo** (`Directory.Build.props`).
+  Prima la DLL diceva 1.0.0 e il pacchetto 2.0.0: due verita' diverse. Ora gli
+  script leggono la versione da li'.
+
+**Perche' la diagnostica e' la cosa piu' utile di questo blocco.**
+Quando AutoCAD non trova una versione del plugin adatta al proprio motore non
+dice niente: il comando semplicemente non esiste, nessun errore da nessuna parte.
+Ora la situazione si legge cosi':
+- **il log c'e'** -> il plugin e' stato caricato, e la riga dice quale versione e
+  su quale AutoCAD. Il problema e' altrove.
+- **il log non c'e' proprio** -> AutoCAD non ha caricato niente: la sua sigla non
+  rientra in nessun blocco del `PackageContents.xml`.
+
+**Decisioni importanti (e perche').**
+- **Ho lasciato gli intervalli di versione stretti** (R24.3-R24.3, R25.0-R25.1,
+  R26.0-R26.0) invece di allargarli "per sicurezza". Autodesk avverte
+  esplicitamente di indicare sempre `SeriesMax`: un intervallo largo farebbe
+  caricare a un futuro AutoCAD una DLL fatta per un motore che non usa piu', e il
+  risultato sarebbe un crash invece di un silenzio. Meglio non comparire che
+  far crashare AutoCAD.
+- **La diagnostica passa da `AcadContext.TryRun`.** Gira durante il caricamento
+  del plugin: se fallisse senza protezione, il plugin non si caricherebbe per
+  colpa di un messaggio informativo. Il rimedio sarebbe peggiore del male.
+
+**Verificato con:**
+- Ricompilazione da zero: 0 errori, 0 avvisi su tutti e tre i motori.
+- 123 test x 3 motori, tutti passati.
+- **Controllato dentro le tre DLL** che la costante di identificazione sia
+  davvero diversa in ognuna (net48 -> "AutoCAD 2024 (.NET Framework 4.8)",
+  net8.0 -> "AutoCAD 2025-2026 (.NET 8)", net10.0 -> "AutoCAD 2027 (.NET 10)").
+  Era la cosa che poteva sbagliarsi in silenzio.
+- Verificato che tutte e tre le DLL dichiarino ora la versione 2.0.0.
+- **Prova vera del pacchetto, dall'inizio alla fine**: creato lo ZIP, estratto in
+  una cartella pulita e **lanciato l'installatore che sta dentro lo ZIP**, cioe'
+  esattamente quello che si fara' in ufficio. Installazione riuscita, tutte e tre
+  le cartelle al loro posto, nessun file rimasto "bloccato" da Windows.
+
+**Cosa resta da provare a mano:**
+- Invariato rispetto al blocco precedente. Il pacchetto e' pronto in `dist\`:
+  `MN_LayoutManager_v2.0.0_AutoCAD2024-2027_<data>.zip`.
+- La prova che conta resta aprire AutoCAD 2026 in ufficio. Se il comando non
+  viene riconosciuto, la prima cosa da guardare e' se esiste il file di log:
+  ora quella singola informazione dice da che parte sta il problema.
+
+---
