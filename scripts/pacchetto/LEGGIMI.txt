@@ -1,5 +1,5 @@
 ====================================================================
- GESTIONE LAYOUT - plugin per AutoCAD {ANNO}
+ GESTIONE LAYOUT - plugin per AutoCAD {ANNI}
  Versione {VERSIONE}  -  pacchetto creato il {DATA}  -  build {COMMIT}
 ====================================================================
 
@@ -11,9 +11,12 @@ COS'E'
 
 COSA SERVE SUL PC DI DESTINAZIONE
   - Windows 64 bit
-  - AutoCAD {ANNO} (sigla interna {SERIE})
+  - Una qualsiasi di queste versioni di AutoCAD:
+{VERSIONI}
+
   Non serve ne' Visual Studio ne' altro: il plugin qui dentro e' gia'
-  compilato.
+  compilato per tutte le versioni elencate. Si installa una volta sola
+  e ogni AutoCAD carica da solo la parte che gli serve.
 
 COME SI INSTALLA
   1. Estrai TUTTO il contenuto di questo ZIP in una cartella qualsiasi
@@ -39,5 +42,6 @@ SE QUALCOSA NON FUNZIONA
   Errori tipici:
   - "AutoCAD e' aperto": chiudilo davvero (controlla che non resti un
     processo acad.exe attivo) e rilancia l'installazione.
-  - Il comando non viene riconosciuto: la versione di AutoCAD non e' la
-    {ANNO}, oppure l'installazione non e' andata a buon fine.
+  - Il comando non viene riconosciuto: la versione di AutoCAD non e'
+    fra quelle elencate qui sopra, oppure l'installazione non e' andata
+    a buon fine.

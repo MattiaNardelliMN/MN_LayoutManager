@@ -1,16 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Logica "pura" del plugin: nessun riferimento ad AutoCAD, nessuna UI.
-       Vive da sola e per questo si puo' testare in automatico. -->
+       Vive da sola e per questo si puo' testare in automatico.
+
+       Viene compilata tre volte perche' AutoCAD ha cambiato motore .NET due
+       volte: 2024 usa .NET Framework 4.8, 2025/2026 usano .NET 8, 2027 usa
+       .NET 10. Stesso codice, tre risultati. -->
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net48;net8.0;net10.0</TargetFrameworks>
     <PlatformTarget>x64</PlatformTarget>
     <RootNamespace>MN_LayoutManager.Core</RootNamespace>
     <AssemblyName>MN_LayoutManager.Core</AssemblyName>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Su .NET Framework le codifiche "vecchie" (Windows-1252 e simili) sono
+       sempre disponibili; su .NET 8/10 no, vanno aggiunte con questo pacchetto.
+       Serve a SystemEncoding per scrivere i file DSD nella codifica che AutoCAD
+       si aspetta. -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

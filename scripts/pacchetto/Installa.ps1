@@ -54,10 +54,15 @@ Write-Step 'Controllo del contenuto del pacchetto'
 if (-not (Test-Path $SourceBundle)) {
     Stop-WithError "Non trovo la cartella '$BundleName' accanto a questo script. Hai estratto TUTTO il contenuto dello ZIP in una cartella prima di lanciarlo?"
 }
-foreach ($file in @($PluginAssembly, $CoreAssembly)) {
-    $path = Join-Path $SourceBundle "Contents\$file"
-    if (-not (Test-Path $path)) {
-        Stop-WithError "Il pacchetto e' incompleto: manca $file. Riestrai lo ZIP e riprova."
+# Il bundle contiene una cartella per ogni versione di AutoCAD supportata:
+# devono esserci tutte, altrimenti su una delle versioni il plugin non
+# comparirebbe e nessuno saprebbe perche'.
+foreach ($t in $Targets) {
+    foreach ($file in @($PluginAssembly, $CoreAssembly)) {
+        $path = Join-Path $SourceBundle "Contents\$($t.Cartella)\$file"
+        if (-not (Test-Path $path)) {
+            Stop-WithError "Il pacchetto e' incompleto: manca $file per $($t.Descrizione). Riestrai lo ZIP e riprova."
+        }
     }
 }
 Write-Ok 'Pacchetto completo.'
@@ -83,10 +88,10 @@ Write-Host '--------------------------------------------------------------' -For
 Write-Host ' FATTO' -ForegroundColor Green
 Write-Host '--------------------------------------------------------------' -ForegroundColor DarkGray
 Write-Host " Installato in : $BundleDir"
-Write-Host " Per AutoCAD   : $AutoCadYear ($AutoCadSeries)"
+Write-Host " Per AutoCAD   : $AutoCadYearRange (una sola installazione le copre tutte)"
 Write-Host ''
 Write-Host ' Cosa fare adesso:'
-Write-Host "   1. apri AutoCAD $AutoCadYear"
+Write-Host "   1. apri AutoCAD (dal $AutoCadYearMin al $AutoCadYearMax)"
 Write-Host "   2. digita il comando  $CommandName  e premi INVIO"
 Write-Host ''
 Write-Host " Se qualcosa non funziona, il file di log e' qui:"

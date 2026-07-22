@@ -341,3 +341,102 @@ altro computer serviva qualcosa di piu' semplice.
   fare in automatico.
 
 ---
+
+## 22/07/2026 - Il plugin ora funziona da AutoCAD 2024 a 2027
+
+**Il problema.** Provato il plugin su AutoCAD 2026 in ufficio: installato nella
+cartella giusta, ma AutoCAD non lo vedeva proprio. Nessun errore, nessun
+messaggio: semplicemente il comando non esisteva.
+
+**La causa vera (piu' grave di quanto sembrasse).** Non era solo il numero di
+versione scritto nel `PackageContents.xml`. Dal 2025 **AutoCAD ha cambiato
+motore .NET**, e una versione di AutoCAD carica solo plugin compilati per il
+proprio motore. In pratica il plugin era proprio incompatibile, non solo
+"non dichiarato".
+
+| AutoCAD | Sigla | Motore .NET |
+|---|---|---|
+| 2024 | R24.3 | .NET Framework 4.8 |
+| 2025 | R25.0 | .NET 8 |
+| 2026 | R25.1 | .NET 8 |
+| 2027 | R26.0 | .NET 10 |
+
+**Cosa ho fatto.**
+- Lo stesso codice viene ora **compilato tre volte** (una per motore) e il bundle
+  le contiene tutte e tre in cartelle separate. Si installa una volta sola: ogni
+  AutoCAD legge il `PackageContents.xml`, riconosce la propria sigla e carica solo
+  la cartella sua.
+- I riferimenti alle API AutoCAD non vengono piu' letti dall'AutoCAD installato
+  sul PC, ma dai **pacchetti NuGet ufficiali di Autodesk**.
+- Anche i test girano tre volte, uno per motore: 123 test x 3.
+- Trovato e corretto **un bug serio che sarebbe emerso solo in ufficio**
+  (vedi sotto).
+- Versione del plugin portata a **2.0.0**: cambia il pacchetto, non solo il codice.
+
+**Il bug nascosto nella pubblicazione (la parte piu' importante).**
+Nel codice che scrive il file DSD (l'elenco fogli che AutoCAD legge per
+pubblicare) c'era `Encoding.Default`, con accanto un commento che diceva
+"NON usare UTF-8, romperebbe i nomi con lettere accentate". Il problema e' che
+**`Encoding.Default` ha cambiato significato**: su .NET Framework 4.8 vuol dire
+"codifica di Windows", su .NET 8 e 10 vuol dire proprio UTF-8. Cioe' lo stesso
+codice, ricompilato per AutoCAD 2026, avrebbe fatto esattamente il danno che il
+commento diceva di voler evitare - senza dare nessun errore.
+
+L'ho verificato sul serio, non per ragionamento: su .NET 10 la parola "Città"
+con `Encoding.Default` diventa `43-69-74-74-C3-A0` (due byte per la "à"), mentre
+AutoCAD ne aspetta uno solo (`E0`). Un layout chiamato "Tavola Città" sarebbe
+uscito storpiato.
+
+Ora la codifica viene scelta in modo esplicito da un modulo nuovo,
+`SystemEncoding`, messo dentro `.Core` proprio per poterlo testare: 7 test nuovi
+lo verificano su tutti e tre i motori.
+
+**Decisioni importanti (e perche').**
+- **API AutoCAD da NuGet invece che dall'AutoCAD installato.** Su questo PC c'e'
+  solo AutoCAD 2024: senza NuGet non ci sarebbe modo di compilare per il 2026 e
+  il 2027. In piu' sparisce il percorso fisso `C:\Program Files\Autodesk\...`
+  scritto nel progetto, che si sarebbe rotto su qualsiasi altro computer.
+- **La versione per .NET 8 e' compilata contro le API di AutoCAD 2025, non 2026,**
+  pur dovendo funzionare su entrambi. Il motivo: .NET accetta di caricare una
+  libreria piu' recente di quella attesa, ma non una piu' vecchia. Puntando alla
+  piu' vecchia del gruppo, la stessa DLL va bene per tutte e due.
+- **`SeriesMax` va sempre indicato** in ogni blocco: senza, un futuro AutoCAD 2028
+  proverebbe a caricare la DLL del 2027 e crasherebbe invece di ignorarla.
+- **Una tabella sola per le versioni** (`$Targets` in `scripts\Comune.ps1`).
+  Per aggiungere AutoCAD 2028 domani si tocca una riga li' e una nel `.csproj`.
+- **`Deploy.ps1` e `CreaPacchetto.ps1` ora usano la stessa funzione** per montare
+  il bundle: prima duplicavano la stessa logica e potevano divergere.
+- **Attenzione, ora serve il .NET SDK 10** per compilare (e' l'unico che sa
+  produrre la versione per il 2027). Per usare il plugin non serve niente.
+
+**Verificato con:**
+- `dotnet build` su tutta la soluzione: 0 errori, **0 avvisi** su tutti e tre i
+  motori. Il codice delle API AutoCAD ha compilato senza modifiche anche contro
+  le API del 2027: nessuna funzione usata e' stata tolta da Autodesk.
+- `dotnet test`: **123 test x 3 motori, tutti passati** (erano 116 su uno solo).
+- Prova vera del pacchetto: creato lo ZIP, estratto e ispezionato. Ho controllato
+  file per file che dentro ogni DLL ci fosse davvero il motore giusto
+  (net48 -> .NETFramework 4.8, net8.0 -> .NETCoreApp 8.0, net10.0 -> .NETCoreApp
+  10.0) e che ognuna puntasse alla versione giusta delle API AutoCAD
+  (24.3, 25.0, 26.0).
+- `PackageContents.xml` generato: controllato che sia XML valido e che i tre
+  blocchi coprano le sigle giuste senza sovrapporsi.
+- Rilanciato `Deploy.ps1`: installa correttamente tutte e tre le versioni.
+- Controllo di sintassi di tutti gli script PowerShell: nessun errore.
+
+**Cosa resta da provare a mano (importante):**
+- **Aprire AutoCAD 2026 in ufficio e digitare `GESTIONELAYOUT`.** E' la prova che
+  conta: tutto il resto e' verificato, ma che AutoCAD 2026 carichi davvero il
+  bundle si vede solo li'.
+- **Pubblicare un layout con lettere accentate nel nome** (es. "Tavola Città") da
+  AutoCAD 2026, e controllare che il PDF esca col nome giusto. E' la verifica sul
+  campo della correzione della codifica.
+- Le prove rimaste in sospeso dalle sessioni precedenti (barra delle schede dopo
+  il trascinamento, Ctrl+A, numerazione con Ctrl+V) valgono ancora, e ora vanno
+  ripetute anche sul 2026 perche' e' un motore diverso.
+- AutoCAD 2027 non e' mai stato provato: la compilazione c'e' ed e' corretta, ma
+  nessuno l'ha ancora aperto.
+- `PSScriptAnalyzer` resta non installato su questa macchina (in sospeso dalla
+  prima sessione).
+
+---

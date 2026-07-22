@@ -7,12 +7,36 @@ stampa e pubblicazione in blocco.
 
 ## Software di riferimento
 
-- Software: **AutoCAD 2024** (sigla interna R24.3)
-- Target .NET: **.NET Framework 4.8**, piattaforma x64
-- API usate: `accoremgd.dll`, `acdbmgd.dll`, `acmgd.dll`, `AdWindows.dll`
-  (lette da `C:\Program Files\Autodesk\AutoCAD 2024\`)
+Il plugin funziona su **AutoCAD dal 2024 al 2027**, Windows a 64 bit.
 
-> Il target .NET NON va cambiato: AutoCAD 2024 carica solo plugin .NET Framework 4.8.
+AutoCAD ha cambiato "motore" .NET due volte, e una versione di AutoCAD carica
+**solo** plugin compilati per il proprio motore. Per questo lo stesso codice
+viene compilato tre volte e il pacchetto le contiene tutte:
+
+| AutoCAD | Sigla interna | Motore .NET | Cartella nel bundle |
+|---|---|---|---|
+| 2024 | R24.3 | .NET Framework 4.8 | `Contents/net48/` |
+| 2025 e 2026 | R25.0 / R25.1 | .NET 8 | `Contents/net8.0/` |
+| 2027 | R26.0 | .NET 10 | `Contents/net10.0/` |
+
+Si installa **una volta sola**: all'avvio ogni AutoCAD legge il file
+`PackageContents.xml`, riconosce la propria sigla e carica solo la cartella che
+gli compete, ignorando le altre.
+
+I riferimenti alle API AutoCAD arrivano dai **pacchetti NuGet ufficiali di
+Autodesk** (`AutoCAD.NET`), non dall'AutoCAD installato: si puo' quindi compilare
+per il 2027 anche avendo installato solo il 2024, e su qualsiasi PC.
+
+> **Se esce AutoCAD 2028**: aggiungi una riga alla tabella `$Targets` in
+> `scripts\Comune.ps1` e il corrispondente `TargetFramework` in
+> `src\MN_LayoutManager\MN_LayoutManager.csproj`. Sono gli unici due punti.
+
+### Per chi sviluppa: serve il .NET SDK 10
+
+Per compilare serve il **.NET SDK 10** (scarica da <https://dotnet.microsoft.com/download>),
+perche' e' l'unico che sa produrre la versione per AutoCAD 2027. Sa produrre anche
+tutte le altre, quindi ne basta uno.
+Per *usare* il plugin invece non serve installare niente.
 
 ## Installazione
 
@@ -36,7 +60,8 @@ Su questo PC, lancia:
 Compila, esegue i test e produce in `dist\` un file ZIP con **solo il plugin gia'
 compilato** (niente codice sorgente). Sull'altro PC basta estrarre tutto lo ZIP in
 una cartella, chiudere AutoCAD e fare doppio click su `Installa plugin.bat`.
-Sull'altro PC non serve ne' Visual Studio ne' .NET SDK: serve solo AutoCAD 2024.
+Sull'altro PC non serve ne' Visual Studio ne' .NET SDK: serve solo AutoCAD (una
+qualsiasi versione dal 2024 al 2027). Lo stesso ZIP va bene per tutte.
 
 ## Uso
 
@@ -143,8 +168,13 @@ le API AutoCAD contiene solo chiamate dirette, dove c'e' poco da sbagliare.
 ## Sviluppo
 
 ```
-dotnet build          compila tutto
-dotnet test           esegue i test automatici
+dotnet build          compila tutto (tutte e tre le versioni)
+dotnet test           esegue i test automatici (su tutti e tre i motori .NET)
 ```
+
+I test girano tre volte, una per motore .NET: e' voluto. Alcune cose si
+comportano diversamente fra .NET Framework e .NET moderno — per esempio la
+codifica con cui si scrivono i file — e questo e' il modo per accorgersene
+prima che lo faccia AutoCAD.
 
 Vedi `CLAUDE.md` per le regole di sviluppo e `MEMORIA.md` per la storia del progetto.

@@ -31,7 +31,7 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot       = Split-Path -Parent $PSScriptRoot
 $SolutionPath   = Join-Path $RepoRoot 'MN_LayoutManager.sln'
 $PluginProject  = Join-Path $RepoRoot 'src\MN_LayoutManager\MN_LayoutManager.csproj'
-$BuildOutputDir = Join-Path $RepoRoot 'src\MN_LayoutManager\bin\Release\net48'
+$BuildRoot      = Join-Path $RepoRoot 'src\MN_LayoutManager\bin\Release'
 $TemplateDir    = Join-Path $PSScriptRoot 'pacchetto'
 
 if (-not $OutputDir) { $OutputDir = Join-Path $RepoRoot 'dist' }
@@ -69,28 +69,19 @@ try {
         Stop-WithError 'La compilazione e'' fallita. Il pacchetto non e'' stato creato.'
     }
 
-    $pluginPath = Join-Path $BuildOutputDir $PluginAssembly
-    $corePath   = Join-Path $BuildOutputDir $CoreAssembly
-    foreach ($file in @($pluginPath, $corePath)) {
-        if (-not (Test-Path $file)) {
-            Stop-WithError "La compilazione e' andata a buon fine ma non trovo il file $file."
-        }
-    }
     Write-Ok 'Compilazione completata.'
 
     # ------------------------------------------------------------ montaggio
     Write-Step 'Preparazione del contenuto del pacchetto'
 
-    $stageBundle   = Join-Path $StageRoot $BundleName
-    $stageContents = Join-Path $stageBundle 'Contents'
-    New-Item -ItemType Directory -Force -Path $stageContents | Out-Null
+    # Stessa funzione usata da Deploy.ps1: il bundle dentro lo ZIP e' identico a
+    # quello che si installa qui. I .pdb vengono esclusi (servono a chi sviluppa).
+    $stageBundle = Join-Path $StageRoot $BundleName
+    Copy-BundleContents -BuildRoot $BuildRoot -BundleDir $stageBundle
 
-    # Solo le DLL: i .pdb servono a chi sviluppa, non a chi prova il plugin.
-    Copy-Item $pluginPath -Destination $stageContents -Force
-    Copy-Item $corePath   -Destination $stageContents -Force
-
-    New-PackageContentsXml |
-        Set-Content -Path (Join-Path $stageBundle 'PackageContents.xml') -Encoding UTF8
+    foreach ($t in $Targets) {
+        Write-Ok "$($t.Descrizione) -> Contents\$($t.Cartella)"
+    }
 
     Copy-Item (Join-Path $PSScriptRoot 'Comune.ps1')            -Destination $StageRoot -Force
     Copy-Item (Join-Path $TemplateDir 'Installa.ps1')           -Destination $StageRoot -Force
@@ -110,9 +101,11 @@ try {
         $commit = 'sconosciuta'
     }
 
+    $elencoVersioni = ($Targets | ForEach-Object { "  - $($_.Descrizione)" }) -join "`r`n"
+
     $readme = Get-Content (Join-Path $TemplateDir 'LEGGIMI.txt') -Raw
-    $readme = $readme.Replace('{ANNO}',     $AutoCadYear).
-                      Replace('{SERIE}',    $AutoCadSeries).
+    $readme = $readme.Replace('{ANNI}',     $AutoCadYearRange).
+                      Replace('{VERSIONI}', $elencoVersioni).
                       Replace('{VERSIONE}', $PluginVersion).
                       Replace('{COMANDO}',  $CommandName).
                       Replace('{COMMIT}',   $commit).
@@ -125,7 +118,7 @@ try {
     Write-Step 'Creazione dello ZIP'
     New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
-    $zipName = "MN_LayoutManager_v{0}_AutoCAD{1}_{2}.zip" -f $PluginVersion, $AutoCadYear, (Get-Date -Format 'yyyy-MM-dd')
+    $zipName = "MN_LayoutManager_v{0}_AutoCAD{1}_{2}.zip" -f $PluginVersion, $AutoCadYearRange, (Get-Date -Format 'yyyy-MM-dd')
     $zipPath = Join-Path $OutputDir $zipName
     if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
@@ -140,7 +133,7 @@ try {
     Write-Host '--------------------------------------------------------------' -ForegroundColor DarkGray
     Write-Host " Pacchetto : $zipPath"
     Write-Host " Dimensione: $sizeKb KB"
-    Write-Host " Per       : AutoCAD $AutoCadYear ($AutoCadSeries), Windows 64 bit"
+    Write-Host " Per       : AutoCAD $AutoCadYearRange, Windows 64 bit"
     Write-Host ''
     Write-Host ' Sull''altro PC:'
     Write-Host '   1. estrai TUTTO lo ZIP in una cartella'

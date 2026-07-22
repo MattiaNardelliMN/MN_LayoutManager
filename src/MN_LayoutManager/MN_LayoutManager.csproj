@@ -1,61 +1,65 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Il plugin vero e proprio: comandi AutoCAD + palette WPF.
-       ATTENZIONE: il target .NET deve corrispondere ad AutoCAD 2024 -> .NET Framework 4.8.
-       Cambiare questo valore fa fallire il caricamento del plugin. -->
+
+       ATTENZIONE: il target .NET deve corrispondere al motore di AutoCAD.
+       AutoCAD ha cambiato motore due volte, quindi servono TRE compilazioni
+       dello stesso codice:
+
+         AutoCAD 2024        (R24.3)  -> .NET Framework 4.8  -> net48
+         AutoCAD 2025 e 2026 (R25.0/R25.1) -> .NET 8         -> net8.0-windows
+         AutoCAD 2027        (R26.0)  -> .NET 10             -> net10.0-windows
+
+       Sbagliare il target non da' errore in compilazione: il plugin
+       semplicemente non viene caricato da AutoCAD, senza spiegazioni. -->
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFrameworks>net48;net8.0-windows;net10.0-windows</TargetFrameworks>
     <OutputType>Library</OutputType>
     <PlatformTarget>x64</PlatformTarget>
     <UseWPF>true</UseWPF>
+    <!-- Serve solo per la finestra "Scegli cartella" (UI/FolderPicker.cs). -->
+    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>MN_LayoutManager</RootNamespace>
     <AssemblyName>MN_LayoutManager</AssemblyName>
+
+    <!-- Un progetto "libreria" di solito NON si porta dietro le DLL dei pacchetti
+         NuGet: le lascia nella cache e le raccoglie solo al momento di pubblicare.
+         Qui invece il plugin viene copiato a mano dentro il bundle di AutoCAD, che
+         quindi deve contenere gia' tutto il necessario, altrimenti a runtime la DLL
+         mancante fa fallire il caricamento. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
-
-  <!-- Percorso di installazione di AutoCAD 2024. Se AutoCAD e' installato
-       altrove, e' l'unica riga da cambiare in tutto il progetto. -->
-  <PropertyGroup>
-    <AutoCadInstallDir Condition="'$(AutoCadInstallDir)' == ''">C:\Program Files\Autodesk\AutoCAD 2024\</AutoCadInstallDir>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Serve solo per la finestra "Scegli cartella": WPF su .NET Framework 4.8
-         non ne ha una propria. -->
-    <Reference Include="System.Windows.Forms" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\MN_LayoutManager.Core\MN_LayoutManager.Core.csproj" />
   </ItemGroup>
 
-  <!-- Le DLL di AutoCAD sono gia' caricate dal software: Private=false evita
-       di copiarle nella cartella di output (copiarle causa conflitti a runtime). -->
-  <ItemGroup>
-    <Reference Include="acmgd">
-      <HintPath>$(AutoCadInstallDir)acmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="acdbmgd">
-      <HintPath>$(AutoCadInstallDir)acdbmgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="accoremgd">
-      <HintPath>$(AutoCadInstallDir)accoremgd.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="AdWindows">
-      <HintPath>$(AutoCadInstallDir)AdWindows.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+  <!-- I riferimenti alle API AutoCAD arrivano dai pacchetti NuGet ufficiali di
+       Autodesk, non dall'AutoCAD installato su questo PC. Cosi' si puo'
+       compilare per il 2027 anche avendo installato solo il 2024, e il progetto
+       compila su qualsiasi macchina senza dover correggere percorsi.
+
+       ExcludeAssets="runtime" e' fondamentale: prende le DLL come RIFERIMENTO
+       ma non le copia accanto al plugin. Copiarle causerebbe conflitti, perche'
+       a runtime AutoCAD carica gia' le proprie.
+
+       Per il .NET 8 si compila contro la 25.0 (AutoCAD 2025), la piu' VECCHIA
+       del gruppo: cosi' la stessa DLL funziona sia sul 2025 sia sul 2026.
+       Al contrario non funzionerebbe, perche' .NET accetta di caricare una
+       libreria piu' recente di quella attesa, ma non una piu' vecchia. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="AutoCAD.NET" Version="24.3.0" ExcludeAssets="runtime" />
   </ItemGroup>
 
-  <Target Name="VerificaAutoCadPresente" BeforeTargets="ResolveAssemblyReferences">
-    <Error Condition="!Exists('$(AutoCadInstallDir)acmgd.dll')"
-           Text="Non trovo le DLL di AutoCAD in '$(AutoCadInstallDir)'. Correggi la proprieta' AutoCadInstallDir in MN_LayoutManager.csproj." />
-  </Target>
+  <!-- 25.0.1 e non 25.0.0: il pacchetto 25.0.0 pubblicato da Autodesk e' difettoso,
+       dichiara una dipendenza da una versione che su NuGet non esiste. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <PackageReference Include="AutoCAD.NET" Version="25.0.1" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <PackageReference Include="AutoCAD.NET" Version="26.0.0" ExcludeAssets="runtime" />
+  </ItemGroup>
 
 </Project>

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Compila il plugin "Gestione Layout" e lo installa per AutoCAD 2024.
+    Compila il plugin "Gestione Layout" e lo installa per AutoCAD 2024-2027.
 
 .DESCRIPTION
     Fa tre cose, in quest'ordine:
@@ -9,6 +9,10 @@
       3. copia il plugin in un "bundle" dentro
          %AppData%\Autodesk\ApplicationPlugins\, cosi' AutoCAD lo carica da solo
          a ogni avvio, senza dover digitare NETLOAD.
+
+    Il bundle contiene tutte le versioni compilate insieme: la stessa
+    installazione vale per AutoCAD 2024, 2025, 2026 e 2027, e ogni AutoCAD
+    carica da solo quella giusta per se'.
 
     IMPORTANTE: AutoCAD deve essere CHIUSO durante l'installazione, altrimenti
     i file del plugin risultano bloccati e la copia fallisce.
@@ -35,8 +39,10 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot         = Split-Path -Parent $PSScriptRoot
 $SolutionPath     = Join-Path $RepoRoot 'MN_LayoutManager.sln'
 $PluginProject    = Join-Path $RepoRoot 'src\MN_LayoutManager\MN_LayoutManager.csproj'
-$BuildOutputDir   = Join-Path $RepoRoot 'src\MN_LayoutManager\bin\Release\net48'
-$BundleContents   = Join-Path $BundleDir 'Contents'
+
+# Dentro questa cartella c'e' una sottocartella per ogni versione di AutoCAD
+# supportata (net48, net8.0-windows, ...): le mette li' il compilatore.
+$BuildRoot        = Join-Path $RepoRoot 'src\MN_LayoutManager\bin\Release'
 
 # ---------------------------------------------------------------- disinstallazione
 if ($Uninstall) {
@@ -90,29 +96,18 @@ if ($LASTEXITCODE -ne 0) {
     Stop-WithError 'La compilazione e'' fallita. Il plugin non e'' stato installato.'
 }
 
-$pluginPath = Join-Path $BuildOutputDir $PluginAssembly
-$corePath   = Join-Path $BuildOutputDir $CoreAssembly
-
-foreach ($file in @($pluginPath, $corePath)) {
-    if (-not (Test-Path $file)) {
-        Stop-WithError "La compilazione e' andata a buon fine ma non trovo il file $file."
-    }
-}
 Write-Ok 'Compilazione completata.'
 
 # ---------------------------------------------------------------- installazione
 Write-Step "Installazione in $BundleDir"
 
-if (Test-Path $BundleDir) {
-    Remove-Item -Recurse -Force $BundleDir
+# Copy-BundleContents controlla da sola che ci siano TUTTE le compilazioni
+# attese e si ferma con un messaggio chiaro se ne manca una.
+Copy-BundleContents -BuildRoot $BuildRoot -BundleDir $BundleDir
+
+foreach ($t in $Targets) {
+    Write-Ok "$($t.Descrizione) -> Contents\$($t.Cartella)"
 }
-New-Item -ItemType Directory -Force -Path $BundleContents | Out-Null
-
-Copy-Item $pluginPath -Destination $BundleContents -Force
-Copy-Item $corePath   -Destination $BundleContents -Force
-
-New-PackageContentsXml |
-    Set-Content -Path (Join-Path $BundleDir 'PackageContents.xml') -Encoding UTF8
 Write-Ok 'Plugin installato.'
 
 # ---------------------------------------------------------------- riepilogo
@@ -121,10 +116,10 @@ Write-Host '--------------------------------------------------------------' -For
 Write-Host ' FATTO' -ForegroundColor Green
 Write-Host '--------------------------------------------------------------' -ForegroundColor DarkGray
 Write-Host " Installato in : $BundleDir"
-Write-Host " Per AutoCAD   : $AutoCadYear ($AutoCadSeries)"
+Write-Host " Per AutoCAD   : $AutoCadYearRange (una sola installazione le copre tutte)"
 Write-Host ''
 Write-Host ' Cosa fare adesso:'
-Write-Host "   1. apri AutoCAD $AutoCadYear"
+Write-Host "   1. apri AutoCAD (dal $AutoCadYearMin al $AutoCadYearMax)"
 Write-Host "   2. digita il comando  $CommandName  e premi INVIO"
 Write-Host ''
 Write-Host " Se qualcosa non funziona, il file di log e' qui:"

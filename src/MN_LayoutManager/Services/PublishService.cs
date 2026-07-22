@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
 using MN_LayoutManager.Core;
 using MN_LayoutManager.Infrastructure;
@@ -212,7 +211,9 @@ namespace MN_LayoutManager.Services
 
             // Il DSD e' un file INI che AutoCAD legge nella codifica di sistema:
             // usare UTF-8 romperebbe i nomi di layout con lettere accentate.
-            File.WriteAllText(path, content, Encoding.Default);
+            // NON usare Encoding.Default: su .NET 8/10 (AutoCAD 2025+) vuol dire UTF-8,
+            // cioe' esattamente il contrario di quello che serve qui.
+            File.WriteAllText(path, content, SystemEncoding.Ansi);
             return path;
         }
     }
