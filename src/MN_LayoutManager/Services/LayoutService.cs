@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
-using AcadApp = Autodesk.AutoCAD.ApplicationServices.Core.Application;
 using MN_LayoutManager.Core;
 using AcadLayoutManager = Autodesk.AutoCAD.DatabaseServices.LayoutManager;
 
@@ -151,7 +150,9 @@ namespace MN_LayoutManager.Services
                 tr.Commit();
             }
 
-            ForceLayoutTabRefresh(document);
+            // Scrivere TabOrder non avvisa nessuno: senza questo la barra delle schede in
+            // basso resterebbe nell'ordine vecchio. Il come sta tutto in un modulo a parte.
+            LayoutTabRefresher.Refresh(document);
         }
 
         /// <summary>
@@ -174,43 +175,6 @@ namespace MN_LayoutManager.Services
             {
                 AcadLayoutManager.Current.CopyLayout(sourceLayoutName, newLayoutName);
             }
-        }
-
-        /// <summary>
-        /// Costringe AutoCAD a ridisegnare la barra delle schede in basso.
-        /// </summary>
-        /// <remarks>
-        /// Cambiare <c>TabOrder</c> aggiorna il disegno ma non genera nessun evento: la
-        /// barra delle schede non se ne accorge e resta nell'ordine vecchio finche' non
-        /// si cambia layout. Rimettere il layout corrente tramite il suo identificativo
-        /// fa scattare l'aggiornamento senza cambiare cosa sta guardando l'utente.
-        /// </remarks>
-        /// <param name="document">Disegno su cui agire.</param>
-        public static void ForceLayoutTabRefresh(Document document)
-        {
-            if (document == null)
-            {
-                return;
-            }
-
-            AcadLayoutManager manager = AcadLayoutManager.Current;
-            string currentName = manager?.CurrentLayout;
-
-            if (manager != null && !string.IsNullOrEmpty(currentName))
-            {
-                // Anche solo "riconfermare" il layout corrente modifica lo stato del
-                // documento: senza il blocco AutoCAD solleverebbe un errore eLockViolation.
-                using (document.LockDocument())
-                {
-                    ObjectId currentId = manager.GetLayoutId(currentName);
-                    if (!currentId.IsNull)
-                    {
-                        manager.SetCurrentLayoutId(currentId);
-                    }
-                }
-            }
-
-            AcadApp.UpdateScreen();
         }
 
         /// <summary>

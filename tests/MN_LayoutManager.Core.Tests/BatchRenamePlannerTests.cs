@@ -176,12 +176,14 @@ namespace MN_LayoutManager.Core.Tests
             Assert.Equal("baanaanaa", plan.Steps.Single().FinalName);
         }
 
+        // Verifica che la rinomina tocchi SOLO i layout spuntati dall'utente:
+        // "Pianta" non e' spuntato, quindi non deve comparire nel piano.
         [Fact]
-        public void Filtro_LimitaLAzioneAiSoliLayoutCheLoContengono()
+        public void LayoutSpuntati_LimitanoLAzioneASoloQuelli()
         {
             var request = new BatchRenameRequest
             {
-                Filter = "Tavola",
+                TargetNames = new[] { "Tavola1", "Tavola2" },
                 Mode = BatchRenameMode.AddPrefix,
                 Value = "X_",
             };
@@ -193,30 +195,34 @@ namespace MN_LayoutManager.Core.Tests
             Assert.DoesNotContain(plan.Steps, s => s.OriginalName == "Pianta");
         }
 
+        // Se l'elenco degli spuntati non e' indicato (null), si agisce su tutti:
+        // e' il comportamento di comodo usato dai test, non dall'interfaccia.
         [Fact]
-        public void Filtro_IgnoraMaiuscoleEMinuscolePerDefault()
+        public void SenzaElencoIndicato_SiAgisceSuTutti()
         {
             var request = new BatchRenameRequest
             {
-                Filter = "tavola",
+                TargetNames = null,
                 Mode = BatchRenameMode.AddPrefix,
                 Value = "X_",
             };
 
             BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(TreLayout, request);
 
-            Assert.Equal(2, plan.Steps.Count);
+            Assert.True(plan.IsValid);
+            Assert.Equal(3, plan.Steps.Count);
         }
 
+        // Nessun layout spuntato deve voler dire "non fare niente", non "fai tutto":
+        // e' la differenza fra un'operazione annullata e un disastro.
         [Fact]
-        public void Filtro_ConDistinzioneMaiuscole_NonTrovaNulla()
+        public void NessunLayoutSpuntato_NonRinominaNulla()
         {
             var request = new BatchRenameRequest
             {
-                Filter = "tavola",
+                TargetNames = new string[0],
                 Mode = BatchRenameMode.AddPrefix,
                 Value = "X_",
-                CaseSensitive = true,
             };
 
             BatchRenamePlan plan = BatchRenamePlanner.CreatePlan(TreLayout, request);
@@ -317,7 +323,7 @@ namespace MN_LayoutManager.Core.Tests
         {
             var request = new BatchRenameRequest
             {
-                Filter = "Tavola1",
+                TargetNames = new[] { "Tavola1" },
                 Mode = BatchRenameMode.FindReplace,
                 Value = "1",
                 ReplacementValue = "2",

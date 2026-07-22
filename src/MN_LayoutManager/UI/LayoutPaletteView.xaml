@@ -15,6 +15,7 @@
 
             <ui:BoolToVisibilityConverter x:Key="BoolToVisibility" />
             <ui:BoolToVisibilityConverter x:Key="BoolToVisibilityInverse" Invert="True" />
+            <ui:NullOrEmptyToVisibilityConverter x:Key="TextToVisibility" />
 
             <!-- Righe dell'elenco: la selezione della lista e' collegata alla proprieta'
                  IsSelected di ogni riga, cosi' il "cervello" sa sempre cosa e' selezionato. -->
@@ -26,24 +27,32 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
+                    <!-- Casella di spunta: decide su quali layout agisce la rinomina multipla. -->
+                    <CheckBox Grid.Column="0"
+                              Style="{StaticResource OptionCheckBoxStyle}"
+                              Margin="0,0,8,0"
+                              IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                              ToolTip="Spunta i layout da rinominare in blocco" />
+
                     <!-- Puntino che segnala il layout attualmente aperto nel disegno. -->
-                    <Ellipse Grid.Column="0"
+                    <Ellipse Grid.Column="1"
                              Width="6" Height="6"
                              Margin="0,0,8,0"
                              VerticalAlignment="Center"
                              Fill="{StaticResource AccentBrush}"
                              Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
 
-                    <TextBlock Grid.Column="1"
+                    <TextBlock Grid.Column="2"
                                Style="{StaticResource BodyTextStyle}"
                                Text="{Binding Name}"
                                VerticalAlignment="Center"
                                Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibilityInverse}}" />
 
-                    <TextBox Grid.Column="1"
+                    <TextBox Grid.Column="2"
                              x:Name="EditBox"
                              Style="{StaticResource InlineEditTextBoxStyle}"
                              Text="{Binding EditingName, UpdateSourceTrigger=PropertyChanged}"
@@ -72,24 +81,23 @@
                    Text="{Binding DocumentName}"
                    Margin="2,0,2,8" />
 
-        <!-- ============ Barra degli strumenti ============ -->
+        <!-- ============ Barra degli strumenti ============
+             Stampa e pubblica sono scesi nella sezione "Stampa e pubblicazione": qui
+             restano solo le due azioni che si usano di continuo. I bottoni non sono
+             raggiungibili col tabulatore (Focusable="False") apposta, cosi' cliccarli
+             non toglie il fuoco all'elenco e Canc, Ctrl+C e Ctrl+V continuano a funzionare. -->
         <UniformGrid Grid.Row="1" Columns="2" Margin="0,0,0,8">
             <Button Style="{StaticResource AccentButtonStyle}"
                     Content="Nuovo layout"
-                    Margin="0,0,4,4"
+                    Margin="0,0,4,0"
+                    Focusable="False"
                     Command="{Binding NewLayoutCommand}" />
             <Button Style="{StaticResource ToolButtonStyle}"
-                    Content="Seleziona tutti"
-                    Margin="4,0,0,4"
-                    Command="{Binding SelectAllCommand}" />
-            <Button Style="{StaticResource ToolButtonStyle}"
-                    Content="Stampa tutti"
-                    Margin="0,4,4,0"
-                    Command="{Binding PrintAllCommand}" />
-            <Button Style="{StaticResource ToolButtonStyle}"
-                    Content="Pubblica tutti"
-                    Margin="4,4,0,0"
-                    Command="{Binding PublishAllCommand}" />
+                    Content="Duplica..."
+                    Margin="4,0,0,0"
+                    Focusable="False"
+                    ToolTip="Crea piu' copie del layout selezionato, numerandole"
+                    Command="{Binding DuplicateCommand}" />
         </UniformGrid>
 
         <!-- ============ Elenco dei layout ============ -->
@@ -108,12 +116,17 @@
                      DragLeave="OnListDragLeave"
                      Drop="OnListDrop">
 
+                <!-- Le scorciatoie stanno sull'elenco e non sulla palette intera: cosi'
+                     mentre si scrive in una casella di testo Canc cancella un carattere
+                     invece di cancellare i layout. Ctrl+A arriva qui solo grazie a
+                     PaletteShortcutInterceptor, perche' AutoCAD se lo prenderebbe. -->
                 <ListBox.InputBindings>
                     <KeyBinding Key="F2" Command="{Binding BeginRenameCommand}" />
                     <KeyBinding Key="Delete" Command="{Binding DeleteCommand}" />
                     <KeyBinding Key="Enter" Command="{Binding ActivateCommand}" />
                     <KeyBinding Key="C" Modifiers="Control" Command="{Binding CopyCommand}" />
                     <KeyBinding Key="V" Modifiers="Control" Command="{Binding PasteCommand}" />
+                    <KeyBinding Key="D" Modifiers="Control" Command="{Binding DuplicateCommand}" />
                     <KeyBinding Key="A" Modifiers="Control" Command="{Binding SelectAllCommand}" />
                 </ListBox.InputBindings>
 
@@ -134,16 +147,22 @@
                                   Header="Incolla" InputGestureText="Ctrl+V"
                                   Command="{Binding PasteCommand}" />
                         <MenuItem Style="{StaticResource DarkMenuItemStyle}"
+                                  Header="Duplica piu' volte..." InputGestureText="Ctrl+D"
+                                  Command="{Binding DuplicateCommand}" />
+                        <MenuItem Style="{StaticResource DarkMenuItemStyle}"
                                   Header="Elimina" InputGestureText="Canc"
                                   Command="{Binding DeleteCommand}" />
                         <Separator Style="{StaticResource DarkSeparatorStyle}" />
                         <MenuItem Style="{StaticResource DarkMenuItemStyle}"
-                                  Header="Impostazioni di pagina..."
-                                  Command="{Binding PageSetupCommand}" />
+                                  Header="Seleziona tutti" InputGestureText="Ctrl+A"
+                                  Command="{Binding SelectAllCommand}" />
                         <Separator Style="{StaticResource DarkSeparatorStyle}" />
                         <MenuItem Style="{StaticResource DarkMenuItemStyle}"
-                                  Header="Stampa selezionati"
-                                  Command="{Binding PrintSelectedCommand}" />
+                                  Header="Impostazioni di pagina..."
+                                  Command="{Binding PageSetupCommand}" />
+                        <MenuItem Style="{StaticResource DarkMenuItemStyle}"
+                                  Header="Stampa"
+                                  Command="{Binding PrintCommand}" />
                         <MenuItem Style="{StaticResource DarkMenuItemStyle}"
                                   Header="Pubblica selezionati..."
                                   Command="{Binding PublishSelectedCommand}" />
@@ -160,18 +179,16 @@
             </Canvas>
         </Grid>
 
-        <!-- ============ Destinazione di stampa e pubblicazione ============ -->
+        <!-- ============ Stampa e pubblicazione ============
+             Le due cose stanno insieme perche' sono la stessa categoria, ma fanno lavori
+             diversi: "Stampa" manda un foglio solo al plotter, "Pubblica" produce i file
+             in blocco. -->
         <Expander Grid.Row="3"
                   Style="{StaticResource SectionExpanderStyle}"
                   Header="STAMPA E PUBBLICAZIONE"
                   IsExpanded="False"
                   Margin="0,8,0,0">
             <StackPanel>
-
-                <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                           Text="Viene creato un file separato per ogni layout, con il nome del layout."
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,8" />
 
                 <Grid Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
@@ -193,10 +210,11 @@
                             Style="{StaticResource ToolButtonStyle}"
                             Content="Sfoglia..."
                             Margin="6,0,0,0"
+                            Focusable="False"
                             Command="{Binding BrowseOutputFolderCommand}" />
                 </Grid>
 
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                     <TextBlock Style="{StaticResource BodyTextStyle}"
                                Text="Formato:"
                                VerticalAlignment="Center"
@@ -215,6 +233,32 @@
                                  GroupName="PublishFormat"
                                  IsChecked="{Binding IsDwfxFormat, Mode=TwoWay}" />
                 </StackPanel>
+
+                <TextBlock Style="{StaticResource SecondaryTextStyle}"
+                           Text="La pubblicazione crea un file separato per ogni layout, con il nome del layout, e va avanti in background."
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8" />
+
+                <Button Style="{StaticResource ToolButtonStyle}"
+                        Content="{Binding PrintLabel}"
+                        HorizontalAlignment="Stretch"
+                        Margin="0,0,0,6"
+                        Focusable="False"
+                        ToolTip="Manda il layout selezionato al plotter delle sue impostazioni di pagina"
+                        Command="{Binding PrintCommand}" />
+
+                <Button Style="{StaticResource ToolButtonStyle}"
+                        Content="{Binding PublishSelectedLabel}"
+                        HorizontalAlignment="Stretch"
+                        Margin="0,0,0,6"
+                        Focusable="False"
+                        Command="{Binding PublishSelectedCommand}" />
+
+                <Button Style="{StaticResource AccentButtonStyle}"
+                        Content="{Binding PublishAllLabel}"
+                        HorizontalAlignment="Stretch"
+                        Focusable="False"
+                        Command="{Binding PublishAllCommand}" />
             </StackPanel>
         </Expander>
 
@@ -226,25 +270,31 @@
                   Margin="0,8,0,0">
             <StackPanel>
 
-                <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                           Text="{Binding BatchModeHint}"
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,8" />
-
+                <!-- La scelta dei layout si fa con le caselle nell'elenco: questi due
+                     bottoni sono solo la scorciatoia per spuntarli tutti o nessuno. -->
                 <Grid Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Style="{StaticResource BodyTextStyle}"
-                               Text="Contiene:"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0" />
-                    <TextBox Grid.Column="1"
-                             Style="{StaticResource InputTextBoxStyle}"
-                             Text="{Binding BatchFilter, UpdateSourceTrigger=PropertyChanged}" />
+                    <Button Grid.Column="0"
+                            Style="{StaticResource ToolButtonStyle}"
+                            Content="Spunta tutti"
+                            Margin="0,0,4,0"
+                            Focusable="False"
+                            Command="{Binding CheckAllCommand}" />
+                    <Button Grid.Column="1"
+                            Style="{StaticResource ToolButtonStyle}"
+                            Content="Nessuno"
+                            Margin="4,0,0,0"
+                            Focusable="False"
+                            Command="{Binding UncheckAllCommand}" />
                 </Grid>
+
+                <TextBlock Style="{StaticResource SecondaryTextStyle}"
+                           Text="{Binding BatchScopeHint}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8" />
 
                 <!-- WrapPanel: se la palette e' stretta i pulsanti vanno a capo da soli
                      invece di uscire dal bordo. -->
@@ -275,6 +325,12 @@
                                  GroupName="BatchMode"
                                  IsChecked="{Binding IsFindReplaceMode, Mode=TwoWay}" />
                 </WrapPanel>
+
+                <TextBlock Style="{StaticResource SecondaryTextStyle}"
+                           Text="{Binding BatchModeHint}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,8"
+                           Visibility="{Binding BatchModeHint, Converter={StaticResource TextToVisibility}}" />
 
                 <Grid Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
@@ -313,6 +369,7 @@
                         Content="Applica"
                         HorizontalAlignment="Right"
                         MinWidth="90"
+                        Focusable="False"
                         Command="{Binding ApplyBatchRenameCommand}" />
             </StackPanel>
         </Expander>

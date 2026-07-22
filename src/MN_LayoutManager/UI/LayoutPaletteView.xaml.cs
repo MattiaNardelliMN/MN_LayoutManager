@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
@@ -28,6 +29,13 @@ namespace MN_LayoutManager.UI
         {
             InitializeComponent();
         }
+
+        /// <summary>
+        /// Il controllo che possiede le scorciatoie da tastiera.
+        /// Serve a <see cref="Services.PaletteShortcutInterceptor"/>, che deve sapere
+        /// quali tasti recuperare dalle grinfie di AutoCAD e a chi consegnarli.
+        /// </summary>
+        public UIElement ShortcutTarget => LayoutList;
 
         private LayoutPaletteViewModel ViewModel => DataContext as LayoutPaletteViewModel;
 
@@ -128,9 +136,15 @@ namespace MN_LayoutManager.UI
 
         private void OnListPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            var source = e.OriginalSource as DependencyObject;
+
+            // Il trascinamento parte solo dalla riga "nuda": cliccare la casella di spunta
+            // o la casella di rinomina deve fare quello che ci si aspetta, non spostare
+            // il layout.
             _mouseDownPoint = e.GetPosition(LayoutList);
-            _mouseDownOnItem = FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject) != null
-                && FindAncestor<TextBox>(e.OriginalSource as DependencyObject) == null;
+            _mouseDownOnItem = FindAncestor<ListBoxItem>(source) != null
+                && FindAncestor<TextBox>(source) == null
+                && FindAncestor<ToggleButton>(source) == null;
         }
 
         private void OnListPreviewMouseMove(object sender, MouseEventArgs e)

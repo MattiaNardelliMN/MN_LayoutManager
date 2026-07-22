@@ -43,18 +43,50 @@ e dimensione fra una sessione e l'altra.
 | Rinominare | **F2**, poi Invio per confermare o Esc per annullare |
 | Navigare | frecce su/giu' |
 | Riordinare | trascinare le righe (la barra turchese mostra dove finiranno) |
-| Selezione multipla | Ctrl+clic / Maiusc+clic, oppure "Seleziona tutti" (Ctrl+A) |
-| Copiare un layout | **Ctrl+C** poi **Ctrl+V**, oppure tasto destro |
+| Selezione multipla | Ctrl+clic / Maiusc+clic, oppure **Ctrl+A** (o tasto destro → "Seleziona tutti") |
+| Copiare un layout | **Ctrl+C** poi **Ctrl+V**. Ctrl+V si puo' ripetere: ogni volta crea la copia successiva |
+| Fare piu' copie insieme | bottone **"Duplica..."** o **Ctrl+D**: chiede quante e le crea tutte |
 | Eliminare | **Canc** o tasto destro (chiede sempre conferma) |
-| Nuovo layout | bottone "Nuovo layout": lo crea e lo mette subito in rinomina |
+| Nuovo layout | bottone "Nuovo layout": lo crea e propone il nome successivo della serie |
 | Impostazioni di pagina | tasto destro → apre la finestra nativa di AutoCAD |
-| Stampare / pubblicare | bottoni "Stampa tutti" / "Pubblica tutti", oppure tasto destro sui selezionati |
-| Rinomina multipla | pannello in basso: aggiungi/togli prefisso o suffisso, trova/sostituisci, con filtro |
+| Stampare un foglio | pannello "Stampa e pubblicazione" → bottone "Stampa" |
+| Produrre file in blocco | stesso pannello → "Pubblica selezionati" / "Pubblica tutti" |
+| Scegliere cosa rinominare | **casella di spunta** accanto a ogni nome |
+| Rinomina multipla | pannello in basso: aggiungi/togli prefisso o suffisso, trova/sostituisci |
 
 I due pannelli in fondo ("Stampa e pubblicazione" e "Rinomina multipla") si aprono
 e si chiudono cliccando sul titolo, per tenere la palette compatta.
 
+### Numerazione automatica
+
+Se i layout seguono una progressione numerica, il plugin la riconosce da solo e
+prosegue il conteggio, un po' come trascinare una cella in Excel:
+
+- da `D_T_01` copiato tre volte escono `D_T_02`, `D_T_03`, `D_T_04`;
+- gli zeri davanti vengono mantenuti (`D_T_09` → `D_T_10`);
+- creando un layout nuovo, il nome successivo viene **proposto** nella casella di
+  rinomina: si conferma con Invio, oppure si scrive quello che si vuole. Non viene
+  mai imposto.
+
+Se nei nomi non c'e' nessun numero si torna al classico `Nome (2)`, `Nome (3)`.
+
+### Selezione e spunte: due cose diverse
+
+- La **riga evidenziata** (selezione) comanda attiva, rinomina, copia, elimina,
+  stampa e pubblica.
+- La **casella di spunta** serve a una cosa sola: dire quali layout deve toccare la
+  rinomina multipla. Resta ferma anche se si cambia selezione, cosi' si puo'
+  preparare con calma un'operazione in blocco.
+
 ### Stampa e pubblicazione
+
+Sono due lavori diversi, raccolti nello stesso pannello:
+
+- **Stampa** manda **un solo layout** (quello selezionato) al plotter indicato nelle
+  sue impostazioni di pagina.
+- **Pubblica** produce **file in blocco**, sui selezionati o su tutti.
+
+Per la pubblicazione:
 
 - Viene creato **un file separato per ogni layout**, chiamato come il layout
   (il layout "Tavola 01" produce `Tavola 01.pdf`).

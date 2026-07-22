@@ -197,3 +197,96 @@ stato fatto e perche'.
   vanno confermati sul campo.
 
 ---
+
+## 2026-07-22 - Seconda tornata di correzioni: tastiera, spunte, numerazione
+
+Dopo la seconda prova in AutoCAD sono arrivate nove segnalazioni. Prima di scrivere
+codice ho ispezionato di nuovo le DLL di AutoCAD 2024 con la reflection, perche' due
+dei problemi dipendevano da cosa le API mettono davvero a disposizione.
+
+**Le due scoperte che hanno guidato il lavoro:**
+
+1. **Non esiste nessun metodo per aggiornare la barra delle schede.** Ci sono solo
+   gli eventi `LayoutsReordered` e `LayoutsRefresh`, che si ASCOLTANO: non c'e' modo
+   di scatenarli. Ecco perche' la correzione della sessione scorsa non funzionava:
+   rimetteva il layout corrente su se stesso, e AutoCAD, vedendo che l'identificativo
+   non cambiava, non faceva assolutamente niente. Era un no-op.
+2. **Esiste `Application.PreTranslateMessage`**, il punto in cui AutoCAD offre ai
+   plugin di vedere un tasto prima di gestirlo. E' l'aggancio che serviva per Ctrl+A.
+
+**Cosa ho fatto:**
+
+1. **Barra delle schede che non si aggiornava dopo il trascinamento.** Ora si fa
+   quello che l'utente faceva a mano per sbloccarla: si passa un istante su un altro
+   layout e si torna subito su quello di prima. E' in un modulo a parte
+   (`LayoutTabRefresher`) proprio perche' e' un rimedio, non una soluzione pulita:
+   se un domani Autodesk esporra' un metodo vero, si cambia un file solo.
+2. **Le scorciatoie che smettevano di funzionare** (Canc dopo "Seleziona tutti",
+   Ctrl+V utilizzabile una volta sola). Avevano tutte la stessa causa: cliccare un
+   bottone toglieva il fuoco all'elenco, e le scorciatoie sono agganciate all'elenco.
+   Ora i bottoni della palette non prendono il fuoco (`Focusable="False"`), quindi
+   l'elenco lo mantiene e i tasti continuano ad arrivare.
+3. **Ctrl+A finiva nel disegno** invece che nella palette: e' una scorciatoia che
+   AutoCAD intercetta nel proprio ciclo dei messaggi, prima che l'interfaccia possa
+   vederla. Il nuovo `PaletteShortcutInterceptor` la recupera. Non contiene l'elenco
+   delle scorciatoie: le legge da quelle gia' dichiarate nell'interfaccia, cosi'
+   restano scritte in un posto solo.
+4. **Caselle di spunta accanto ai nomi.** Selezione ed elenco da rinominare erano la
+   stessa cosa e si pestavano i piedi. Ora sono separate: la riga evidenziata comanda
+   attiva/copia/elimina/stampa, la spunta dice solo quali layout rinominare in blocco.
+   Se non spunti niente, "Applica" resta spento: meglio non fare niente che rinominare
+   tutto per sbaglio.
+5. **Filtro "Contiene" eliminato** dalla rinomina multipla: obbligava a inventare un
+   testo comune ed era scomodo. Le spunte fanno la stessa cosa in modo diretto.
+6. **Stampa e pubblica riuniti** nella tendina "Stampa e pubblicazione", con i ruoli
+   separati: "Stampa" manda UN foglio al plotter, "Pubblica" produce i file in blocco
+   (selezionati o tutti). La barra in alto ora ha solo "Nuovo layout" e "Duplica...".
+7. **"Seleziona tutti" spostato**: come bottone e' diventato "Spunta tutti"/"Nessuno"
+   dentro il pannello rinomina, dove serve. Come comando resta su Ctrl+A e nel menu
+   col tasto destro.
+8. **Progressione numerica** (la novita' piu' grossa). Il plugin riconosce le serie
+   nei nomi e prosegue il conteggio: da `D_T_01` copiato tre volte escono `D_T_02`,
+   `D_T_03`, `D_T_04`, con gli zeri davanti mantenuti. Vale per Ctrl+V ripetuto, per
+   il nuovo bottone "Duplica..." (che chiede quante copie e le mostra in anteprima) e
+   per la creazione di un layout nuovo, dove il nome successivo viene **proposto**
+   nella casella di rinomina e confermato con Invio, mai imposto.
+
+**Decisioni importanti (e perche'):**
+
+- **La progressione sta tutta in `.Core`** (`LayoutNumbering`, `NumberedLayoutName`),
+  cioe' nella parte che non conosce AutoCAD. E' il motivo per cui 25 test nuovi la
+  verificano in un decimo di secondo invece che a mano dentro AutoCAD.
+- **Serve almeno di 2 layout per parlare di "serie".** Con un solo nome numerato non
+  si sa se e' una progressione o un caso, e proporre un numero sarebbe indovinare.
+- **Si riparte sempre dal numero piu' alto della serie**, non da quello del layout
+  copiato: copiando `D_T_01` quando esiste gia' `D_T_05`, il nome giusto e' `D_T_06`.
+  Altrimenti si litigherebbe di continuo con i nomi occupati.
+- **Tetto di 100 copie per volta**: un errore di battitura ("500" invece di "5")
+  creerebbe centinaia di layout, con una lunga attesa e nessun modo comodo di tornare
+  indietro.
+- **La finestra "Duplica" non sa niente di layout**: riceve gia' pronta la funzione
+  che calcola l'anteprima dei nomi. Cosi' la regola dei nomi resta una sola.
+- **La finestra non usa la cornice di Windows**, altrimenti avrebbe la barra del
+  titolo chiara sopra un contenuto scuro.
+
+**Verificato con:**
+- `dotnet build -t:Rebuild` (compilazione da zero): 0 errori, 0 avvisi.
+- `dotnet test`: 116 test, tutti passati (erano 91). I 25 nuovi coprono la
+  progressione numerica e la rinomina sui soli layout spuntati.
+- Il test che controlla gli stili dell'interfaccia ora guarda TUTTI i file di
+  interfaccia, non solo la palette, e trova le finestre da solo. **L'ho verificato
+  rompendo apposta uno stile nella finestra nuova**: il test lo ha segnalato. Poi ho
+  rimesso a posto. Un test che non puo' fallire non serve a niente.
+
+**Cosa resta da provare a mano dentro AutoCAD (importante):**
+- **Il punto 1 e' quello a rischio.** Che passare su un altro layout e tornare
+  indietro basti a far ridisegnare la barra delle schede e' ragionevole (e' quello che
+  succede quando lo fai tu a mano), ma NON ho potuto provarlo: senza AutoCAD aperto non
+  c'e' modo. Se la barra non si aggiorna ancora, il piano B e' rimandare il ritorno al
+  layout di partenza al momento libero successivo di AutoCAD, invece che subito.
+- Secondo effetto collaterale da valutare: il passaggio momentaneo su un altro layout
+  provoca una rigenerazione. Su disegni molto pesanti potrebbe farsi sentire.
+- Ctrl+A dentro la palette: deve selezionare i layout e NON gli oggetti del disegno.
+- Ctrl+V ripetuto e "Duplica...": che i nomi escano davvero numerati in ordine.
+
+---

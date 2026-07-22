@@ -44,7 +44,10 @@ namespace MN_LayoutManager.Core
                 return new BatchRenamePlan(steps, errors, false);
             }
 
-            // Layout che il filtro lascia passare: sono quelli su cui si agisce.
+            // Layout spuntati dall'utente: sono quelli su cui si agisce. Gli altri servono
+            // comunque, perche' un nome nuovo non deve scontrarsi con i loro.
+            var targets = BuildTargetSet(request.TargetNames);
+
             var affected = new List<string>();
             var untouched = new List<string>();
             foreach (string name in layoutNames)
@@ -54,7 +57,7 @@ namespace MN_LayoutManager.Core
                     continue;
                 }
 
-                if (MatchesFilter(name, request))
+                if (targets == null || targets.Contains(name))
                 {
                     affected.Add(name);
                 }
@@ -106,14 +109,27 @@ namespace MN_LayoutManager.Core
                 Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture).Substring(0, 8));
         }
 
-        private static bool MatchesFilter(string name, BatchRenameRequest request)
+        /// <summary>
+        /// I nomi scelti dall'utente, pronti per la ricerca. null significa "tutti":
+        /// e' diverso da "nessuno", che invece e' un elenco vuoto e non rinomina niente.
+        /// </summary>
+        private static HashSet<string> BuildTargetSet(IReadOnlyList<string> targetNames)
         {
-            if (string.IsNullOrEmpty(request.Filter))
+            if (targetNames == null)
             {
-                return true;
+                return null;
             }
 
-            return name.IndexOf(request.Filter, request.Comparison) >= 0;
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string name in targetNames)
+            {
+                if (!string.IsNullOrEmpty(name))
+                {
+                    set.Add(name);
+                }
+            }
+
+            return set;
         }
 
         private static string DescribeMissingValue(BatchRenameMode mode)

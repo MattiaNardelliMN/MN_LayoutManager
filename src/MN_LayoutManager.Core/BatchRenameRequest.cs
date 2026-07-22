@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MN_LayoutManager.Core
 {
@@ -9,10 +10,15 @@ namespace MN_LayoutManager.Core
     public sealed class BatchRenameRequest
     {
         /// <summary>
-        /// Filtro opzionale: agisce solo sui layout il cui nome contiene questo testo.
-        /// Vuoto o null significa "tutti i layout".
+        /// I layout su cui agire: sono quelli che l'utente ha spuntato nell'elenco.
+        /// null significa "tutti i layout del disegno".
         /// </summary>
-        public string Filter { get; set; }
+        /// <remarks>
+        /// Prima qui c'era un filtro testuale ("agisci sui nomi che contengono..."), poco
+        /// pratico perche' obbligava a inventare un testo comune. Scegliere i layout con
+        /// le caselle di spunta e' diretto e non lascia dubbi su cosa verra' toccato.
+        /// </remarks>
+        public IReadOnlyList<string> TargetNames { get; set; }
 
         /// <summary>Modalita' scelta.</summary>
         public BatchRenameMode Mode { get; set; }
@@ -26,7 +32,7 @@ namespace MN_LayoutManager.Core
         public string ReplacementValue { get; set; }
 
         /// <summary>
-        /// Se true, filtro e ricerca distinguono maiuscole e minuscole.
+        /// Se true, la ricerca distingue maiuscole e minuscole.
         /// Il default (false) e' il comportamento che si aspetta un utente normale.
         /// </summary>
         public bool CaseSensitive { get; set; }

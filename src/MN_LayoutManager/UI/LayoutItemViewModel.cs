@@ -10,6 +10,7 @@ namespace MN_LayoutManager.UI
         private string _name;
         private string _editingName;
         private bool _isSelected;
+        private bool _isChecked;
         private bool _isEditing;
         private bool _isCurrent;
 
@@ -40,11 +41,29 @@ namespace MN_LayoutManager.UI
             set => SetProperty(ref _editingName, value);
         }
 
-        /// <summary>true se la riga e' selezionata.</summary>
+        /// <summary>
+        /// true se la riga e' selezionata, cioe' evidenziata nell'elenco.
+        /// La selezione comanda attiva, rinomina, copia, elimina, stampa e pubblica.
+        /// </summary>
         public bool IsSelected
         {
             get => _isSelected;
             set => SetProperty(ref _isSelected, value);
+        }
+
+        /// <summary>
+        /// true se la casella accanto al nome e' spuntata.
+        /// </summary>
+        /// <remarks>
+        /// La spunta e' una cosa diversa dalla selezione e serve a una cosa sola: dire
+        /// quali layout deve toccare la rinomina multipla. Sono separate apposta, perche'
+        /// la selezione cambia di continuo (basta un clic) mentre la scelta dei layout da
+        /// rinominare deve restare ferma mentre si prepara l'operazione.
+        /// </remarks>
+        public bool IsChecked
+        {
+            get => _isChecked;
+            set => SetProperty(ref _isChecked, value);
         }
 
         /// <summary>true mentre l'utente sta scrivendo il nuovo nome dentro la riga.</summary>

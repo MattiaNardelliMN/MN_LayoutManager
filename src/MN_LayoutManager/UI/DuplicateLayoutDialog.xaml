@@ -1,0 +1,79 @@
+<Window x:Class="MN_LayoutManager.UI.DuplicateLayoutDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Duplica layout"
+        Width="360"
+        SizeToContent="Height"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource PanelBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
+        FontFamily="Segoe UI"
+        FontSize="12"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True">
+
+    <!--
+        La cornice di Windows e' disattivata (WindowStyle="None") perche' altrimenti la
+        barra del titolo resterebbe chiara sopra una finestra scura. Il titolo qui sotto
+        e' fatto in casa e il trascinamento e' gestito nel code-behind.
+    -->
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/MN_LayoutManager;component/Themes/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+        <StackPanel Margin="16">
+
+            <TextBlock Style="{StaticResource DialogTitleStyle}"
+                       Text="Duplica layout"
+                       Margin="0,0,0,12"
+                       MouseLeftButtonDown="OnTitleBarMouseDown" />
+
+            <TextBlock x:Name="QuestionText"
+                       Style="{StaticResource BodyTextStyle}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,10" />
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Style="{StaticResource BodyTextStyle}"
+                           Text="Copie:"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                <TextBox x:Name="CountBox"
+                         Style="{StaticResource InputTextBoxStyle}"
+                         Width="70"
+                         MaxLength="3"
+                         TextAlignment="Center"
+                         TextChanged="OnCountChanged" />
+            </StackPanel>
+
+            <TextBlock x:Name="PreviewText"
+                       Style="{StaticResource SecondaryTextStyle}"
+                       TextWrapping="Wrap"
+                       MinHeight="32"
+                       Margin="0,0,0,14" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Style="{StaticResource ToolButtonStyle}"
+                        Content="Annulla"
+                        MinWidth="84"
+                        Margin="0,0,8,0"
+                        IsCancel="True" />
+                <Button x:Name="CreateButton"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Content="Crea"
+                        MinWidth="84"
+                        IsDefault="True"
+                        Click="OnCreateClick" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

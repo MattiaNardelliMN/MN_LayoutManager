@@ -40,4 +40,32 @@ namespace MN_LayoutManager.UI
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
             => Binding.DoNothing;
     }
+
+    /// <summary>
+    /// Mostra un elemento solo se il testo collegato non e' vuoto.
+    /// Serve per le righe di spiegazione che compaiono solo in certe modalita': senza
+    /// questo resterebbe uno spazio bianco quando non c'e' niente da dire.
+    /// </summary>
+    public sealed class NullOrEmptyToVisibilityConverter : IValueConverter
+    {
+        /// <summary>Da testo a visibilita'.</summary>
+        /// <param name="value">Testo da controllare.</param>
+        /// <param name="targetType">Non usato.</param>
+        /// <param name="parameter">Non usato.</param>
+        /// <param name="culture">Non usato.</param>
+        /// <returns>Visible se c'e' del testo, altrimenti Collapsed.</returns>
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return string.IsNullOrWhiteSpace(value as string) ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        /// <summary>Non serve: il collegamento e' a senso unico.</summary>
+        /// <param name="value">Non usato.</param>
+        /// <param name="targetType">Non usato.</param>
+        /// <param name="parameter">Non usato.</param>
+        /// <param name="culture">Non usato.</param>
+        /// <returns>Sempre <see cref="Binding.DoNothing"/>.</returns>
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => Binding.DoNothing;
+    }
 }

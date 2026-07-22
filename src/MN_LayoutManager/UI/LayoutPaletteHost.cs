@@ -1,6 +1,7 @@
 using System;
 using Autodesk.AutoCAD.Windows;
 using MN_LayoutManager.Infrastructure;
+using MN_LayoutManager.Services;
 
 namespace MN_LayoutManager.UI
 {
@@ -23,6 +24,7 @@ namespace MN_LayoutManager.UI
 
         private static PaletteSet _paletteSet;
         private static LayoutPaletteViewModel _viewModel;
+        private static PaletteShortcutInterceptor _shortcuts;
 
         /// <summary>Apre la palette se e' chiusa, la chiude se e' aperta.</summary>
         public static void Toggle()
@@ -40,6 +42,9 @@ namespace MN_LayoutManager.UI
         {
             AcadContext.TryRun("Chiusura palette", () =>
             {
+                _shortcuts?.Dispose();
+                _shortcuts = null;
+
                 if (_paletteSet != null)
                 {
                     _paletteSet.Visible = false;
@@ -93,6 +98,10 @@ namespace MN_LayoutManager.UI
 
             _paletteSet.AddVisual(PaletteName, view);
             _paletteSet.Visible = true;
+
+            // Va creato dopo che la palette e' visibile: prima l'elenco non esiste ancora
+            // come elemento vero e non potrebbe ricevere il fuoco della tastiera.
+            _shortcuts = new PaletteShortcutInterceptor(view.ShortcutTarget);
 
             PluginLog.Info("Apertura palette", "Palette Gestione Layout aperta.");
         }

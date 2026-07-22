@@ -22,20 +22,43 @@ namespace MN_LayoutManager.Core.Tests
 
         private static string ViewPath => Path.Combine(GetSourceRoot(), "MN_LayoutManager", "UI", "LayoutPaletteView.xaml");
 
+        /// <summary>
+        /// Tutti i file di interfaccia del plugin, trovati da soli.
+        /// Cercarli invece di elencarli a mano fa si' che una finestra nuova sia
+        /// controllata automaticamente, senza doversi ricordare di aggiungerla qui.
+        /// </summary>
+        private static IReadOnlyList<string> AllXamlFiles =>
+            Directory.GetFiles(GetSourceRoot(), "*.xaml", SearchOption.AllDirectories)
+                .Where(path => !path.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar)
+                    && !path.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
+                .ToList();
+
         [Fact]
         public void IFileDellInterfacciaEsistono()
         {
             Assert.True(File.Exists(ThemePath), "Manca il tema scuro: " + ThemePath);
             Assert.True(File.Exists(ViewPath), "Manca la vista della palette: " + ViewPath);
+
+            // Senza questo, se la ricerca dei file smettesse di trovare qualcosa i
+            // controlli successivi passerebbero sempre pur non controllando niente:
+            // un test che non puo' fallire e' peggio di nessun test.
+            var found = AllXamlFiles.Select(Path.GetFileName).ToList();
+
+            foreach (string expected in new[] { "DarkTheme.xaml", "LayoutPaletteView.xaml", "DuplicateLayoutDialog.xaml" })
+            {
+                Assert.Contains(expected, found);
+            }
         }
 
         [Fact]
         public void IFileDellInterfacciaSonoXmlValido()
         {
-            // Se lo XAML e' malformato (un tag non chiuso) questo test fallisce subito,
-            // con un messaggio che dice riga e colonna.
-            XDocument.Load(ThemePath);
-            XDocument.Load(ViewPath);
+            // Se uno XAML e' malformato (un tag non chiuso) questo test fallisce subito,
+            // con un messaggio che dice quale file, riga e colonna.
+            foreach (string path in AllXamlFiles)
+            {
+                XDocument.Load(path);
+            }
         }
 
         [Fact]
@@ -51,20 +74,37 @@ namespace MN_LayoutManager.Core.Tests
                 "Nel tema si richiamano risorse che non esistono: " + string.Join(", ", missing));
         }
 
+        /// <summary>
+        /// Il controllo piu' importante: uno stile scritto male non da' errore in
+        /// compilazione, ma fa crashare la finestra nel momento in cui la si apre.
+        /// Vale per la palette e per ogni altra finestra del plugin.
+        /// </summary>
         [Fact]
-        public void OgniStileRichiamatoNellaPaletteEsisteNelTemaONellaPaletteStessa()
+        public void OgniStileRichiamatoInUnaFinestraEsisteDavvero()
         {
-            var defined = new HashSet<string>(ReadDefinedKeys(ThemePath), StringComparer.Ordinal);
-            foreach (string localKey in ReadDefinedKeys(ViewPath))
+            var themeKeys = new HashSet<string>(ReadDefinedKeys(ThemePath), StringComparer.Ordinal);
+            var problems = new List<string>();
+
+            foreach (string path in AllXamlFiles)
             {
-                defined.Add(localKey);
+                if (string.Equals(path, ThemePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var defined = new HashSet<string>(themeKeys, StringComparer.Ordinal);
+                foreach (string localKey in ReadDefinedKeys(path))
+                {
+                    defined.Add(localKey);
+                }
+
+                foreach (string missing in ReadUsedKeys(path).Where(key => !defined.Contains(key)).Distinct())
+                {
+                    problems.Add(Path.GetFileName(path) + " richiama " + missing);
+                }
             }
 
-            var missing = ReadUsedKeys(ViewPath).Where(key => !defined.Contains(key)).Distinct().ToList();
-
-            Assert.True(
-                missing.Count == 0,
-                "Nella palette si richiamano risorse che non esistono: " + string.Join(", ", missing));
+            Assert.True(problems.Count == 0, "Risorse richiamate ma inesistenti: " + string.Join("; ", problems));
         }
 
         [Fact]
