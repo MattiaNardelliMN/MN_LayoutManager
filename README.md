@@ -25,6 +25,19 @@ Da quel momento AutoCAD lo carica **da solo a ogni avvio**: non serve `NETLOAD`.
 
 Per disinstallare: `.\scripts\Deploy.ps1 -Uninstall`
 
+### Installare su un altro PC (senza strumenti di sviluppo)
+
+Su questo PC, lancia:
+
+```
+.\scripts\CreaPacchetto.ps1
+```
+
+Compila, esegue i test e produce in `dist\` un file ZIP con **solo il plugin gia'
+compilato** (niente codice sorgente). Sull'altro PC basta estrarre tutto lo ZIP in
+una cartella, chiudere AutoCAD e fare doppio click su `Installa plugin.bat`.
+Sull'altro PC non serve ne' Visual Studio ne' .NET SDK: serve solo AutoCAD 2024.
+
 ## Uso
 
 In AutoCAD digita il comando:
@@ -118,7 +131,9 @@ si comporta in modo strano.
 src/MN_LayoutManager.Core/   logica pura (nomi, rinomina multipla, riordino, file DSD)
 src/MN_LayoutManager/        plugin vero: comandi AutoCAD + palette WPF scura
 tests/                       test automatici della logica pura
-scripts/                     installazione e disinstallazione
+scripts/                     installazione, disinstallazione, creazione pacchetto
+scripts/pacchetto/           file che finiscono dentro lo ZIP distribuibile
+dist/                        gli ZIP prodotti (non versionata)
 ```
 
 La divisione non e' casuale: tutto cio' che "ragiona" sta in `.Core`, che non

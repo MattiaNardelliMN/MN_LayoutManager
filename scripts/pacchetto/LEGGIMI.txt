@@ -1,0 +1,43 @@
+====================================================================
+ GESTIONE LAYOUT - plugin per AutoCAD {ANNO}
+ Versione {VERSIONE}  -  pacchetto creato il {DATA}  -  build {COMMIT}
+====================================================================
+
+COS'E'
+  Un pannello agganciabile che sostituisce la barra delle schede dei
+  layout di AutoCAD: elenco navigabile, rinomina rapida, riordino con
+  il mouse, copia/incolla, eliminazione, rinomina multipla, stampa e
+  pubblicazione in blocco.
+
+COSA SERVE SUL PC DI DESTINAZIONE
+  - Windows 64 bit
+  - AutoCAD {ANNO} (sigla interna {SERIE})
+  Non serve ne' Visual Studio ne' altro: il plugin qui dentro e' gia'
+  compilato.
+
+COME SI INSTALLA
+  1. Estrai TUTTO il contenuto di questo ZIP in una cartella qualsiasi
+     (per esempio sul Desktop). Non lanciare i file da dentro lo ZIP.
+  2. CHIUDI AutoCAD.
+  3. Doppio click su "Installa plugin.bat".
+  4. Riapri AutoCAD e digita il comando:  {COMANDO}
+
+  Da quel momento il plugin si carica da solo a ogni avvio di AutoCAD:
+  non serve NETLOAD.
+
+COME SI DISINSTALLA
+  Chiudi AutoCAD e fai doppio click su "Disinstalla plugin.bat".
+
+DOVE FINISCONO I FILE
+  %AppData%\Autodesk\ApplicationPlugins\MN_LayoutManager.bundle\
+
+SE QUALCOSA NON FUNZIONA
+  Il plugin scrive un file di log qui:
+    %AppData%\MN_LayoutManager\logs\
+  Mandami quel file: dice cosa e' andato storto.
+
+  Errori tipici:
+  - "AutoCAD e' aperto": chiudilo davvero (controlla che non resti un
+    processo acad.exe attivo) e rilancia l'installazione.
+  - Il comando non viene riconosciuto: la versione di AutoCAD non e' la
+    {ANNO}, oppure l'installazione non e' andata a buon fine.

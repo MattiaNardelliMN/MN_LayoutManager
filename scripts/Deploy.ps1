@@ -28,37 +28,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------- costanti
-$AutoCadYear      = '2024'
-$AutoCadSeries    = 'R24.3'   # sigla interna di AutoCAD 2024
-$BundleName       = 'MN_LayoutManager.bundle'
-$PluginAssembly   = 'MN_LayoutManager.dll'
-$CoreAssembly     = 'MN_LayoutManager.Core.dll'
-$CommandName      = 'GESTIONELAYOUT'
+# Nomi, versione di AutoCAD e funzioni di stampa stanno in Comune.ps1, cosi'
+# sono definiti una volta sola e valgono anche per CreaPacchetto.ps1.
+. (Join-Path $PSScriptRoot 'Comune.ps1')
 
 $RepoRoot         = Split-Path -Parent $PSScriptRoot
 $SolutionPath     = Join-Path $RepoRoot 'MN_LayoutManager.sln'
 $PluginProject    = Join-Path $RepoRoot 'src\MN_LayoutManager\MN_LayoutManager.csproj'
 $BuildOutputDir   = Join-Path $RepoRoot 'src\MN_LayoutManager\bin\Release\net48'
-$BundleDir        = Join-Path $env:APPDATA "Autodesk\ApplicationPlugins\$BundleName"
 $BundleContents   = Join-Path $BundleDir 'Contents'
-
-function Write-Step([string]$Text) {
-    Write-Host ''
-    Write-Host "==> $Text" -ForegroundColor Cyan
-}
-
-function Write-Ok([string]$Text) {
-    Write-Host "    OK  $Text" -ForegroundColor Green
-}
-
-function Stop-WithError([string]$Text) {
-    Write-Host ''
-    Write-Host "!!! $Text" -ForegroundColor Red
-    Write-Host ''
-    Write-Host 'Premi INVIO per chiudere.'
-    [void](Read-Host)
-    exit 1
-}
 
 # ---------------------------------------------------------------- disinstallazione
 if ($Uninstall) {
@@ -133,29 +111,8 @@ New-Item -ItemType Directory -Force -Path $BundleContents | Out-Null
 Copy-Item $pluginPath -Destination $BundleContents -Force
 Copy-Item $corePath   -Destination $BundleContents -Force
 
-# Il PackageContents.xml e' la "carta d'identita'" del plugin: dice ad AutoCAD
-# quale file caricare, per quale versione, e di farlo automaticamente all'avvio.
-$packageContents = @"
-<?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage SchemaVersion="1.0"
-                    AppVersion="1.0.0"
-                    ProductCode="{8F2B41C6-9D3E-4A57-B1C8-7E5D2A9F3B60}"
-                    Name="Gestione Layout"
-                    Description="Palette agganciabile per gestire i layout di AutoCAD"
-                    Author="MN">
-  <CompanyDetails Name="MN" />
-  <Components Description="AutoCAD $AutoCadYear">
-    <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="$AutoCadSeries" SeriesMax="$AutoCadSeries" />
-    <ComponentEntry AppName="MN_LayoutManager"
-                    Version="1.0.0"
-                    ModuleName="./Contents/$PluginAssembly"
-                    AppDescription="Palette Gestione Layout"
-                    LoadOnAutoCADStartup="True" />
-  </Components>
-</ApplicationPackage>
-"@
-
-Set-Content -Path (Join-Path $BundleDir 'PackageContents.xml') -Value $packageContents -Encoding UTF8
+New-PackageContentsXml |
+    Set-Content -Path (Join-Path $BundleDir 'PackageContents.xml') -Encoding UTF8
 Write-Ok 'Plugin installato.'
 
 # ---------------------------------------------------------------- riepilogo

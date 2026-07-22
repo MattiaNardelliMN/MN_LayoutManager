@@ -290,3 +290,54 @@ dei problemi dipendevano da cosa le API mettono davvero a disposizione.
 - Ctrl+V ripetuto e "Duplica...": che i nomi escano davvero numerati in ordine.
 
 ---
+
+## 22/07/2026 — Pacchetto ZIP per provare il plugin su un altro PC
+
+**Il problema.** Fino a ora il plugin si installava solo con `scripts\Deploy.ps1`,
+che pero' compila: richiede il codice sorgente e il .NET SDK. Per provarlo su un
+altro computer serviva qualcosa di piu' semplice.
+
+**Cosa ho fatto.**
+- Nuovo script `scripts\CreaPacchetto.ps1`: esegue i test, compila in Release e
+  produce in `dist\` un file ZIP con dentro **solo il plugin gia' compilato**
+  (le due DLL + `PackageContents.xml`), un installatore da doppio click e un
+  `LEGGIMI.txt`. Nessun codice sorgente, nessun file `.pdb`.
+- Nuova cartella `scripts\pacchetto\`: contiene i file che finiscono dentro lo
+  ZIP (`Installa.ps1`, i due `.bat`, il modello di `LEGGIMI.txt`). Tenerli come
+  file veri e non come testo incollato dentro lo script rende piu' facile
+  correggerli.
+- Nuovo file `scripts\Comune.ps1` con le costanti condivise (anno di AutoCAD,
+  nomi delle DLL, nome del comando) e la funzione che genera il
+  `PackageContents.xml`.
+
+**Decisioni e perche'.**
+- **`Comune.ps1` esiste per non scrivere due volte la stessa cosa.** Il
+  `PackageContents.xml` (la "carta d'identita'" che dice ad AutoCAD quale DLL
+  caricare) prima stava dentro `Deploy.ps1`; adesso sta in un posto solo e lo
+  usano sia `Deploy.ps1` sia `CreaPacchetto.ps1`. Se un domani si passa ad
+  AutoCAD 2025 si cambia una riga sola invece di due file.
+- **L'installatore del pacchetto esegue `Unblock-File`.** Windows marca come
+  "bloccati" i file arrivati da internet o da una chiavetta: se non si toglie
+  quel marchio, .NET si rifiuta di caricare la DLL e il plugin non parte senza
+  dare spiegazioni. E' il classico problema che fa perdere un'ora.
+- **Lo ZIP resta legato ad AutoCAD 2024** (`SeriesMin`/`SeriesMax` = R24.3): se
+  sull'altro PC c'e' una versione diversa, il plugin non si carica. Va sistemato
+  solo se serve davvero.
+
+**Verificato con:**
+- 116 test automatici, tutti passati.
+- Compilazione Release: 0 errori, 0 avvisi.
+- Controllo di sintassi di tutti gli script PowerShell: nessun errore.
+- **Prova vera del pacchetto:** ho estratto lo ZIP prodotto in una cartella
+  temporanea e lanciato il suo installatore. Ha installato correttamente in
+  `%AppData%\Autodesk\ApplicationPlugins\`, e il `PackageContents.xml` risultante
+  e' identico a quello prodotto da `Deploy.ps1`.
+- Ho poi rilanciato `Deploy.ps1` per controllare che il refactor non l'avesse
+  rotto: funziona come prima.
+
+**Cosa resta da provare a mano:**
+- Aprire AutoCAD 2024 sull'ALTRO PC dopo l'installazione e verificare che il
+  comando `GESTIONELAYOUT` apra la palette. E' l'unica prova che non si puo'
+  fare in automatico.
+
+---
