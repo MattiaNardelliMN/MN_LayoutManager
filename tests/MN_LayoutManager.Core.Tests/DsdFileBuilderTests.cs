@@ -1,12 +1,13 @@
 using System;
+using System.Linq;
 using MN_LayoutManager.Core;
 using Xunit;
 
 namespace MN_LayoutManager.Core.Tests
 {
     /// <summary>
-    /// Verifica la generazione del file DSD, cioe' l'elenco di fogli che il comando
-    /// nativo -PUBLISH di AutoCAD legge per stampare/pubblicare piu' layout in un colpo solo.
+    /// Verifica la generazione del file DSD, cioe' l'elenco di fogli che la pubblicazione
+    /// di AutoCAD legge per stampare/pubblicare piu' layout in un colpo solo.
     /// In parole semplici: controlla che nel file finiscano tutti e soli i layout scelti,
     /// che sia chiesto UN FILE PER OGNI LAYOUT nella cartella indicata, e che il plugin si
     /// fermi con un messaggio chiaro quando manca qualcosa.
@@ -124,16 +125,59 @@ namespace MN_LayoutManager.Core.Tests
             Assert.Contains("[DWF6Sheet:Tavola1 (2)]", dsd, StringComparison.Ordinal);
         }
 
+        // I numeri attesi sono quelli dell'enumerazione SheetType di AutoCAD
+        // (AcCoreMgd.dll), letta per riflessione e identica su AutoCAD 2024, 2026 e 2027.
+        // Attenzione: le varianti "Single" producono un file per foglio, le "Multi" un
+        // unico documento multipagina. Il plugin promette un file per layout, quindi qui
+        // deve comparire sempre la variante "Single".
         [Theory]
-        [InlineData(PublishOutputKind.PageSetupPlotter, "Type=0")]
-        [InlineData(PublishOutputKind.Dwf, "Type=1")]
-        [InlineData(PublishOutputKind.Dwfx, "Type=2")]
-        [InlineData(PublishOutputKind.Pdf, "Type=6")]
+        [InlineData(PublishOutputKind.PageSetupPlotter, "Type=2")] // OriginalDevice
+        [InlineData(PublishOutputKind.Dwf, "Type=0")]              // SingleDwf
+        [InlineData(PublishOutputKind.Dwfx, "Type=3")]             // SingleDwfx
+        [InlineData(PublishOutputKind.Pdf, "Type=5")]              // SinglePdf
         public void IlTipoDiUscitaFinisceNelCampoType(PublishOutputKind kind, string atteso)
         {
             Assert.True(DsdFileBuilder.TryBuild(Richiesta(kind: kind), out string dsd, out _));
 
             Assert.Contains(atteso, dsd, StringComparison.Ordinal);
+        }
+
+        [Theory]
+        [InlineData(PublishOutputKind.Pdf)]
+        [InlineData(PublishOutputKind.Dwf)]
+        [InlineData(PublishOutputKind.Dwfx)]
+        [InlineData(PublishOutputKind.PageSetupPlotter)]
+        public void IlDsdNonChiedeMaiUnFileMultipagina(PublishOutputKind kind)
+        {
+            // Il difetto che ha reso la pubblicazione inutile per mesi: il campo Type
+            // chiedeva un documento multipagina (o addirittura il formato sbagliato)
+            // mentre MULTISHEET=0 ne chiedeva uno per foglio. Le due richieste in
+            // contrasto facevano fallire il lavoro senza produrre nessun file.
+            int type = PublishSheetType.ForOneFilePerLayout(kind);
+
+            Assert.DoesNotContain(
+                type,
+                new[] { PublishSheetType.MultiDwf, PublishSheetType.MultiDwfx, PublishSheetType.MultiPdf });
+
+            Assert.True(DsdFileBuilder.TryBuild(Richiesta(kind: kind), out string dsd, out _));
+            Assert.Contains("MULTISHEET=0", dsd, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void OgniFormatoHaUnNumeroDiverso()
+        {
+            // Due formati che finissero sullo stesso numero vorrebbero dire che uno dei
+            // due produce il file sbagliato: e' esattamente l'errore che c'era prima,
+            // dove "stampa su plotter" e "DWF" si sovrapponevano.
+            int[] numeri =
+            {
+                PublishSheetType.ForOneFilePerLayout(PublishOutputKind.PageSetupPlotter),
+                PublishSheetType.ForOneFilePerLayout(PublishOutputKind.Pdf),
+                PublishSheetType.ForOneFilePerLayout(PublishOutputKind.Dwf),
+                PublishSheetType.ForOneFilePerLayout(PublishOutputKind.Dwfx),
+            };
+
+            Assert.Equal(numeri.Length, numeri.Distinct().Count());
         }
 
         [Theory]

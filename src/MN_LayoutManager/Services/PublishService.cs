@@ -11,9 +11,14 @@ namespace MN_LayoutManager.Services
 {
     /// <summary>
     /// Stampa e pubblicazione di piu' layout in un colpo solo, un file per layout.
-    /// Scrive un file DSD temporaneo (l'elenco dei fogli) e lo passa al comando nativo
-    /// -PUBLISH di AutoCAD, che sa gia' gestire code di stampa, plotter e PDF.
+    /// Prepara un file DSD temporaneo (l'elenco dei fogli) e lo affida a
+    /// <see cref="AcadPublisher"/>, che chiama l'API di pubblicazione di AutoCAD.
     /// </summary>
+    /// <remarks>
+    /// Qui si prepara e si controlla; la chiamata ad AutoCAD sta tutta in
+    /// <see cref="AcadPublisher"/>, cosi' la parte rischiosa resta confinata in un
+    /// modulo solo.
+    /// </remarks>
     public static class PublishService
     {
         private const string TempFolderName = "MN_LayoutManager";
@@ -85,7 +90,7 @@ namespace MN_LayoutManager.Services
                     request.OutputFolder,
                     dsdPath));
 
-            AcadCommandRunner.PublishFromDsd(document, dsdPath);
+            AcadPublisher.Publish(document, dsdPath, outputKind);
             error = null;
             return true;
         }

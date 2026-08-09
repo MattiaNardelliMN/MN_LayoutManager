@@ -506,3 +506,101 @@ Ora la situazione si legge cosi':
   ora quella singola informazione dice da che parte sta il problema.
 
 ---
+
+## 09/08/2026 - Stampa e pubblica: perche' non usciva mai nessun file
+
+**Il problema segnalato.** La palette faceva fare tutto il giro (scegli i layout,
+scegli la cartella, conferma) e diceva "pubblicazione avviata", ma nella cartella
+non compariva niente. Nessun errore, nessun messaggio: i comandi andavano a vuoto.
+
+**La causa: quattro numeri sbagliati.** Nel file DSD - l'elenco di fogli che
+AutoCAD legge per pubblicare - c'e' un campo `Type=` che dice cosa produrre.
+Il plugin ci scriveva dei numeri presi per buoni, mai verificati. Li ho letti
+per riflessione dalle DLL ufficiali di Autodesk (l'enumerazione `SheetType` in
+`AcCoreMgd.dll`) ed **erano sbagliati tutti e quattro**:
+
+| Quello che l'utente chiedeva | Numero scritto | Cosa significa DAVVERO quel numero |
+|---|---|---|
+| Stampa sul plotter | 0 | crea un file DWF |
+| DWF | 1 | un unico DWF multipagina |
+| DWFx | 2 | manda al plotter |
+| **PDF** | **6** | **un unico PDF multipagina** |
+
+Il caso peggiore e' proprio il PDF, quello che si usa sempre: il plugin chiedeva
+ad AutoCAD un unico documento multipagina (`Type=6`) e contemporaneamente, con
+`MULTISHEET=0`, un file separato per foglio. Due richieste in contraddizione.
+AutoCAD non produceva niente. E siccome la pubblicazione era stata impostata per
+girare in secondo piano, il fallimento restava confinato a un fumetto in basso a
+destra facilissimo da non vedere.
+
+**I numeri giusti** (verificati identici su AutoCAD 2024, 2026 e 2027):
+stampa su plotter = 2, DWF = 0, DWFx = 3, PDF = 5.
+
+**Perche' nessuno se n'era accorto prima (la parte da ricordare).**
+C'era gia' un test su quel campo. Ma il test si limitava a ricopiare gli stessi
+numeri che stavano nel codice: `Assert.Contains("Type=6")`. Un test scritto cosi'
+non puo' fallire mai, perche' non confronta il codice con la realta' - confronta
+il codice con se stesso. Era una rete di sicurezza finta.
+
+**Cosa ho fatto.**
+1. **Numeri corretti e messi in un posto solo**, il nuovo modulo
+   `Core\PublishSheetType.cs`, con scritto in chiaro da dove vengono.
+2. **Buttata la strada della riga di comando.** Prima il plugin lanciava il
+   comando `-PUBLISH` scrivendo un'istruzione AutoLISP. Quella strada non
+   restituisce nessun esito: qualunque cosa succeda, il plugin scrive "avviata"
+   e non sa altro. Ora si chiama l'API vera di AutoCAD
+   (`Publisher.PublishExecute`), che invece riporta gli errori.
+3. **Il plugin adesso dice com'e' andata.** Il nuovo `PublishOutcomeListener`
+   ascolta gli eventi di pubblicazione e scrive nel log quanti fogli sono usciti,
+   oppure che il lavoro e' fallito. In piu' viene attivato il registro CSV di
+   AutoCAD, accanto ai log del plugin.
+4. **Test rifatti in modo che possano davvero fallire** (vedi sotto).
+5. Versione portata a **2.0.1**.
+
+**Decisioni importanti (e perche').**
+- **I numeri non si scrivono piu' a mano nel testo del DSD e basta**: al momento
+  di pubblicare, il tipo viene rimesso a partire dall'enumerazione vera di
+  AutoCAD. Cosi' il formato non dipende da come e' stato scritto il file di testo.
+- **C'e' un controllo automatico che i numeri non siano cambiati.** Se un domani
+  Autodesk li modificasse, la differenza finisce nel log invece di produrre di
+  nuovo file sbagliati in silenzio. E' la lezione di questo bug: non basta avere
+  il numero giusto, serve accorgersi quando smette di esserlo.
+- **La pubblicazione resta in secondo piano**, come chiesto nella sessione del
+  21/07: non ho rimesso AutoCAD a bloccarsi. Ora pero' il fallimento in secondo
+  piano lascia una traccia scritta.
+- **L'errore viene fermato dentro il modulo.** La pubblicazione parte in un
+  momento successivo al clic: un errore lasciato libero li' non avrebbe piu'
+  nessuno a raccoglierlo e chiuderebbe AutoCAD. Passa da `AcadContext.TryRun`.
+- **Tutto cio' che tocca AutoCAD sta in `AcadPublisher.cs`**, un file solo: la
+  parte rischiosa e' confinata, se serve cambiare strada si tocca solo quello.
+
+**Verificato con:**
+- Ricompilazione da zero in Release: 0 errori, **0 avvisi** su tutti e tre i motori.
+- `dotnet test`: **128 test x 3 motori, tutti passati** (erano 123).
+- **Ho verificato che i test nuovi possano davvero fallire**: ho rimesso apposta
+  nel codice i quattro numeri sbagliati e ho rilanciato i test. **6 test sono
+  diventati rossi.** Poi ho rimesso i valori corretti e sono tornati verdi.
+  Era il controllo piu' importante di tutta la sessione: dimostra che se il bug
+  tornasse, adesso qualcuno se ne accorge.
+- I valori dell'enumerazione `SheetType` letti dai metadati delle DLL di AutoCAD
+  2024, 2025/2026 e 2027: identici su tutte e tre.
+- Controllo che in tutto il progetto non sia rimasto nessun riferimento alla
+  vecchia strada (`PublishFromDsd`, `-PUBLISH`).
+
+**Cosa resta da provare a mano dentro AutoCAD (importante):**
+- **Pubblicare qualche layout in PDF e controllare che i file escano davvero**,
+  uno per layout, con il nome del layout, nella cartella scelta. E' la prova che
+  conta: il difetto e' stato trovato e corretto sulla carta, ma la conferma sul
+  campo non c'e' ancora.
+- Provare anche **"Stampa"** sul plotter: prima quel comando chiedeva ad AutoCAD
+  un file DWF invece di stampare, quindi non ha mai fatto quello che prometteva.
+- Se ancora non uscisse niente, **adesso il log dice perche'**: guardare
+  `%AppData%\MN_LayoutManager\logs\`, sia il log del giorno sia il nuovo file
+  `pubblicazione_<data>.csv` scritto da AutoCAD.
+- Restano in sospeso le prove delle sessioni precedenti (AutoCAD 2026 in ufficio,
+  barra delle schede dopo il trascinamento, Ctrl+A, numerazione con Ctrl+V) e
+  `PSScriptAnalyzer` ancora non installato.
+- Il pacchetto ZIP in `dist\` e' ancora la 2.0.0, cioe' senza questa correzione:
+  va rigenerato con `scripts\CreaPacchetto.ps1` prima di riprovare in ufficio.
+
+---

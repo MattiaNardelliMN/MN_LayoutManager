@@ -8,18 +8,11 @@ namespace MN_LayoutManager.Core
 {
     /// <summary>
     /// Costruisce il contenuto di un file DSD (Drawing Set Description): l'elenco di fogli
-    /// che il comando nativo -PUBLISH di AutoCAD sa leggere.
+    /// che la pubblicazione di AutoCAD sa leggere.
     /// E' un file di testo in formato INI: generarlo e' logica pura, quindi testabile.
     /// </summary>
     public static class DsdFileBuilder
     {
-        // I numeri del campo Type= del DSD sono definiti da AutoCAD: stanno qui come
-        // costanti con un nome, invece che sparsi come numeri magici nel codice.
-        private const int TargetTypePlotter = 0;
-        private const int TargetTypeDwf = 1;
-        private const int TargetTypeDwfx = 2;
-        private const int TargetTypePdf = 6;
-
         /// <summary>
         /// Valore di MULTISHEET che chiede ad AutoCAD un file separato per ogni foglio,
         /// invece di un unico documento multipagina.
@@ -110,7 +103,8 @@ namespace MN_LayoutManager.Core
             }
 
             builder.AppendLine("[Target]");
-            builder.AppendLine(FormattableString.Invariant($"Type={GetTargetType(request.OutputKind)}"));
+            builder.AppendLine(FormattableString.Invariant(
+                $"Type={PublishSheetType.ForOneFilePerLayout(request.OutputKind)}"));
 
             // DWF vuole un percorso di file: con un file per foglio AutoCAD ne usa solo
             // la cartella, e il nome lo prende dal titolo di ciascun foglio.
@@ -183,23 +177,6 @@ namespace MN_LayoutManager.Core
             return trimmed.EndsWith("\\", StringComparison.Ordinal)
                 ? trimmed
                 : trimmed + "\\";
-        }
-
-        private static int GetTargetType(PublishOutputKind kind)
-        {
-            switch (kind)
-            {
-                case PublishOutputKind.PageSetupPlotter:
-                    return TargetTypePlotter;
-                case PublishOutputKind.Dwf:
-                    return TargetTypeDwf;
-                case PublishOutputKind.Dwfx:
-                    return TargetTypeDwfx;
-                case PublishOutputKind.Pdf:
-                    return TargetTypePdf;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Tipo di pubblicazione non riconosciuto.");
-            }
         }
     }
 }
