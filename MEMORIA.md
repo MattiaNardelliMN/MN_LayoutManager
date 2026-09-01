@@ -604,3 +604,231 @@ il codice con se stesso. Era una rete di sicurezza finta.
   va rigenerato con `scripts\CreaPacchetto.ps1` prima di riprovare in ufficio.
 
 ---
+
+## 01/09/2026 - "Il comando non esiste": non era un bug, era il nome
+
+**Il problema segnalato.** Plugin caricato in AutoCAD, digitato `LAYOUTMANAGER`,
+nessun comando e nessuna palette.
+
+**La causa.** Il comando non si e' mai chiamato `LAYOUTMANAGER`: si chiama
+`GESTIONELAYOUT`. `LAYOUTMANAGER` e' il nome del PROGETTO. Non c'era niente di
+rotto: il plugin funzionava, era il nome a non corrispondere.
+
+**Come l'ho stabilito senza aprire AutoCAD.** Tre controlli, in ordine:
+1. il bundle e' installato in `%AppData%\Autodesk\ApplicationPlugins\`;
+2. **esiste il log del giorno stesso** - quindi AutoCAD il plugin lo aveva
+   caricato eccome. La riga diceva: `v2.0.1 | compilato per: AutoCAD 2024
+   (.NET Framework 4.8) | AutoCAD: 24.3s`, cioe' la variante giusta sul motore
+   giusto, nessun errore;
+3. nessun errore nel log.
+   Tutto puntava altrove: non all'installazione, ma al nome digitato.
+
+   **Nota per il futuro: la diagnostica all'avvio aggiunta il 22/07 ha fatto
+   esattamente il lavoro per cui era stata scritta.** La presenza o assenza di
+   quel file di log ha risolto la diagnosi in due minuti invece che a tentativi.
+
+**Cosa ho fatto.** Aggiunto `LAYOUTMANAGER` come **secondo nome dello stesso
+comando** (`PaletteCommandAlias` in `Commands.cs`). `GESTIONELAYOUT` continua a
+funzionare: sono due porte sulla stessa stanza, non due comandi. Aggiornati anche
+i punti dove il nome viene comunicato all'utente: messaggi di `Deploy.ps1` e
+dell'installatore del pacchetto, `LEGGIMI.txt` e `README.md`.
+
+**Decisioni importanti (e perche').**
+- **Due nomi invece di rinominare.** Rinominare avrebbe rotto l'abitudine di chi
+  gia' usa `GESTIONELAYOUT`; tenere solo il nome italiano avrebbe lasciato in
+  piedi la trappola. Con due nomi nessuno dei due casi si presenta piu'.
+- **Ho verificato invece di assumere, su due punti che potevano far fallire tutto
+  in silenzio:**
+  - che le API AutoCAD accettino due `[CommandMethod]` sulla stessa funzione:
+    letto per riflessione da `AcCoreMgd.dll`, `AttributeUsage(AllowMultiple =
+    True)`. Confermato;
+  - che `LAYOUTMANAGER` non fosse gia' un comando di AutoCAD 2024: cercato dentro
+    `acad.exe`. **Il primo tentativo di ricerca era sbagliato** (cercava in ASCII e
+    non trovava nemmeno `LAYOUTWIZARD`, che esiste di sicuro). Ripetuto in UTF-16:
+    `LAYOUTWIZARD` compare, `LAYOUTMANAGER` no. Nome libero.
+  Il "controllo di controllo" - cercare qualcosa che DEVE esserci per capire se il
+  metodo di ricerca funziona - e' cio' che ha evitato una risposta falsa.
+- **L'alias sta in `Comune.ps1`**, dove stanno gia' le altre costanti condivise, ed
+  e' quindi automaticamente disponibile anche all'installatore dentro lo ZIP.
+- **Nessun test automatico aggiunto, di proposito.** Un test che legge `Commands.cs`
+  e verifica che ci sia scritto "LAYOUTMANAGER" ricopierebbe il codice invece di
+  controllarlo: e' esattamente la "rete di sicurezza finta" che il 09/08 aveva
+  lasciato passare il bug dei numeri del DSD. Qui la verifica vera e' un'altra ed e'
+  stata fatta: **letto dentro le tre DLL compilate** che entrambi i nomi ci siano.
+
+**Verificato con:**
+- `dotnet build -c Release`: 0 errori, **0 avvisi** su net48, net8, net10. Il fatto
+  stesso che compili conferma `AllowMultiple` anche su .NET 8 e .NET 10, dove la
+  riflessione non era riuscita a leggerlo.
+- `dotnet test`: **128 test x 3 motori, tutti passati**.
+- Controllo di sintassi dei 4 script PowerShell: 0 errori.
+- **Letti i due nomi dentro tutte e tre le DLL compilate** e poi di nuovo **dentro
+  la DLL effettivamente installata** in `ApplicationPlugins`, non solo in quella di
+  compilazione: sono due cose diverse e la seconda e' quella che AutoCAD carica.
+- `Deploy.ps1` rilanciato: installazione riuscita, tutte e tre le varianti.
+
+**Un problema vero trovato per strada e NON corretto (scelta dell'utente).**
+All'avvio il plugin dovrebbe scrivere nella riga di comando "plugin caricato,
+digita GESTIONELAYOUT". Quel messaggio **non compare mai**: in
+`AcadContext.WriteMessage` c'e' un controllo che esce in silenzio se non c'e' un
+disegno attivo, e quando AutoCAD carica un plugin dal bundle lo fa all'avvio,
+prima che il disegno sia pronto. Il messaggio che avrebbe evitato tutto questo
+viene quindi buttato via proprio quando servirebbe. La correzione (rimandarlo al
+primo momento libero di AutoCAD, evento `Idle`) e' stata proposta e l'utente ha
+preferito rimandarla. **Resta in sospeso.**
+
+**Cosa resta da fare:**
+- **Aprire AutoCAD e digitare `LAYOUTMANAGER`** (o `GESTIONELAYOUT`): e' la prova
+  che conta, tutto il resto e' verificato ma nessuno ha ancora visto la palette.
+- Il messaggio d'avvio invisibile, qui sopra.
+- Il pacchetto ZIP in `dist\` non contiene ancora l'alias: da rigenerare con
+  `scripts\CreaPacchetto.ps1` prima di riportarlo in ufficio.
+- Restano in sospeso, invariate, tutte le prove sul campo delle sessioni
+  precedenti: pubblicazione PDF (la correzione del 09/08 non e' mai stata
+  confermata), "Stampa" sul plotter, AutoCAD 2026 in ufficio, barra delle schede
+  dopo il trascinamento, Ctrl+A, numerazione con Ctrl+V, AutoCAD 2027 mai aperto,
+  `PSScriptAnalyzer` non installato.
+
+---
+
+## 01/09/2026 (seconda parte) - Perche' i PDF non uscivano: mancava la stampante
+
+**Prove sul campo passate.** Prima di tutto, tre verifiche in sospeso da luglio sono
+state fatte in AutoCAD e sono andate BENE:
+- **Ctrl+A** dentro la palette seleziona i layout (non gli oggetti del disegno);
+- **Duplica...** e la numerazione progressiva funzionano;
+- **il trascinamento aggiorna davvero la barra delle schede in basso.** Era la
+  correzione piu' a rischio di tutte, un rimedio artigianale di cui non c'era
+  nessuna certezza. Funziona.
+
+**Il problema rimasto.** La pubblicazione in PDF non produceva nessun file.
+
+**La causa, letta nel log e non indovinata.**
+```
+[ERROR] [Stampa/Pubblica] Errore di AutoCAD (NullPtr): eNullPtr
+   in Autodesk.AutoCAD.PlottingServices.PlotConfigManager.get_CurrentConfig()
+```
+Il plugin chiedeva ad AutoCAD "dammi la configurazione di stampa corrente"
+(`PlotConfigManager.CurrentConfig`). Ma quella e' una domanda che ha senso solo se
+qualcuno, in quella sessione, ha gia' scelto una stampante. Aprendo la palette e
+premendo "Pubblica" non lo aveva fatto nessuno: **AutoCAD rispondeva con il vuoto e
+l'operazione moriva prima ancora di cominciare**, senza mai arrivare a stampare.
+
+Ecco perche' il bug era sopravvissuto alla correzione del 09/08: quella aveva
+sistemato i numeri del formato dentro il file DSD, che erano davvero sbagliati, ma
+il codice non arrivava mai al punto di usarli.
+
+**Cosa ho fatto.** La soluzione non e' *chiedere* qual e' la stampante corrente, e'
+**impostarla**. Due moduli nuovi, separati apposta:
+- **`Core\PlotDeviceNames.cs`** - solo dati: quali stampanti di AutoCAD servono per
+  ogni formato (PDF, DWF, DWFx), in ordine di preferenza. Non conosce AutoCAD,
+  quindi si testa a comando.
+- **`Services\PlotConfigResolver.cs`** - la parte che parla con AutoCAD: aggiorna
+  l'elenco delle stampanti, prova i nomi uno per uno con
+  `PlotConfigManager.SetCurrentConfig` e tiene il primo che AutoCAD accetta.
+
+Aggiunta anche una variante di `PluginLog.Error` senza eccezione: "manca una
+stampante" e' un errore vero anche se non c'e' nessun errore tecnico dietro.
+
+Versione portata a **2.0.2**.
+
+**Decisioni importanti (e perche').**
+- **Un elenco di stampanti, non una sola.** Scrivere solo "DWG To PDF.pc3" avrebbe
+  funzionato su questo PC e sarebbe potuto fallire su un altro. Ora, se quella manca,
+  si passa alle altre stampanti PDF di AutoCAD.
+- **Per "Stampa" (plotter) il plugin NON impone nessuna stampante.** Ogni foglio deve
+  andare al dispositivo scritto nelle SUE impostazioni di pagina: imporne una sola a
+  tutti sarebbe peggio del problema. Si passa il dispositivo del layout corrente come
+  valore di partenza, e la stampante di sistema come ultimo ripiego.
+- **Il valore "None" e' trattato come "nessuna stampante".** E' cio' che AutoCAD
+  scrive quando il layout non ne ha una: passarlo come se fosse un nome vero
+  farebbe fallire la stampa.
+- **Se non si trova nessuna stampante, il plugin non solleva un'eccezione: si ferma e
+  spiega.** Nel log finisce cosa e' stato provato E l'elenco di cio' che AutoCAD
+  dichiara di avere. Se ricapita, il log basta a capire il perche'.
+- **Il PlotConfig non viene chiuso dopo l'uso**, di proposito: appartiene ad AutoCAD
+  ed e' ancora in uso dalla pubblicazione in secondo piano. Chiuderlo la farebbe
+  fallire.
+- **Verificato per riflessione, non a memoria**, che `SetCurrentConfig` esista
+  davvero. **Al primo tentativo la riflessione non lo mostrava**: falliva a caricare
+  una dipendenza e restituiva un elenco monco che sembrava completo. Aggiunto il
+  caricamento delle dipendenze, il metodo e' comparso. Un elenco incompleto che non
+  si annuncia come tale e' piu' pericoloso di un errore.
+
+**Verificato con:**
+- `dotnet build -c Release`: 0 errori, **0 avvisi** su net48, net8, net10.
+- `dotnet test`: **143 test x 3 motori, tutti passati** (erano 128). I 15 nuovi
+  coprono la scelta della stampante.
+- **Ho verificato che i test nuovi possano davvero fallire.** Ho introdotto 4 guasti
+  apposta (nome di stampante senza ".pc3", stampante imposta anche alla stampa su
+  plotter, doppione nell'elenco, "None" trattato come stampante vera): **6 test sono
+  diventati rossi**, uno per ogni guasto. Poi ho ripristinato e sono tornati verdi.
+  E' la lezione del 09/08: un test che non puo' fallire non serve a niente.
+
+**Cosa resta da fare - IMPORTANTE, non e' ancora confermato:**
+- **Il plugin nuovo non e' ancora installato**: al momento della modifica AutoCAD era
+  aperto e l'installazione non sovrascrive un plugin in uso. Va chiuso AutoCAD e
+  rilanciato `scripts\Deploy.ps1`.
+- **Poi va riprovata la pubblicazione in PDF.** Questa correzione rimuove l'errore che
+  si vedeva nel log, ma non c'e' nessuna garanzia che dietro non ce ne sia un
+  secondo: fino ad ora la pubblicazione non era MAI arrivata a partire davvero, quindi
+  tutto cio' che viene dopo quel punto non e' mai stato messo alla prova.
+- Se non uscissero ancora file, il log ora dice di piu': cerca la riga "Dispositivo di
+  stampa in uso" (dice quale stampante e' stata scelta) e il file
+  `pubblicazione_<data>.csv` scritto da AutoCAD.
+- Provare anche **"Stampa"** sul plotter.
+- Il pacchetto ZIP in `dist\` e' fermo alla 2.0.1: da rigenerare.
+- Restano in sospeso: AutoCAD 2026 in ufficio, AutoCAD 2027 mai aperto, il messaggio
+  d'avvio invisibile (vedi blocco precedente), `PSScriptAnalyzer` non installato.
+
+---
+
+## 01/09/2026 (conferma) - La pubblicazione PDF funziona. Release v2.0.2
+
+**Provato in AutoCAD 2024 e confermato dall'utente: i PDF escono.** E' la prima
+volta da quando il progetto esiste che la pubblicazione arriva fino in fondo.
+
+Le righe del log che lo dimostrano:
+```
+[06:41:07] [Avvio] Gestione Layout v2.0.2 | compilato per: AutoCAD 2024 (.NET 4.8)
+[06:42:52] [Stampa/Pubblica] Dispositivo di stampa in uso: DWG To PDF.pc3
+[06:43:00] [Stampa/Pubblica] Lavoro (Pdf) consegnato alla pubblicazione in secondo piano
+```
+La riga di mezzo e' quella nuova: prima, al suo posto, c'era l'errore `eNullPtr`.
+
+**Cosa e' stato chiuso oggi, in tutto.** Cinque cose in sospeso da luglio e agosto:
+1. il comando ora risponde anche a `LAYOUTMANAGER`;
+2. Ctrl+A dentro la palette - confermato;
+3. Duplica e numerazione progressiva - confermato;
+4. il trascinamento aggiorna la barra delle schede - confermato (era la
+   correzione piu' incerta di tutto il progetto);
+5. **la pubblicazione in PDF - confermata.**
+
+**Release fatta.**
+- Branch `feature/layout-palette` unito su `master` (che era fermo al primo
+  commit di luglio: da oggi torna ad essere la versione buona).
+- Tag `v2.0.2`.
+- Pacchetto `MN_LayoutManager_v2.0.2_AutoCAD2024-2027_2026-09-01.zip` allegato
+  alla release su GitHub, cosi' si scarica e si installa senza codice sorgente
+  ne' SDK. Contenuto verificato prima di pubblicarlo: tutte e tre le varianti
+  (net48 / net8 / net10), versione 2.0.2, LEGGIMI aggiornato con i due nomi
+  del comando.
+
+**Un dettaglio minore da sistemare, segnalato per onesta'.**
+Il plugin scrive nel log "L'esito dei singoli fogli e' nel registro CSV di
+pubblicazione", ma **quel file CSV non viene creato**: AutoCAD lo scrive solo se
+il registro di pubblicazione e' attivo nelle sue impostazioni. Il messaggio
+quindi rimanda a un file che spesso non esiste. Non e' grave (la pubblicazione
+funziona), ma il messaggio va corretto o il registro va attivato davvero.
+
+**Cosa resta da fare:**
+- **"Stampa" sul plotter non e' ancora stata provata.** Passa dalla stessa
+  correzione, ma per quel caso il plugin non impone il dispositivo: usa quello
+  del layout. E' una strada diversa e va vista sul campo.
+- **AutoCAD 2026 in ufficio**: ora c'e' un pacchetto 2.0.2 pronto da provare.
+- AutoCAD 2027 non e' mai stato aperto da nessuno.
+- Il registro CSV di pubblicazione, qui sopra.
+- Il messaggio d'avvio invisibile (vedi il primo blocco di oggi).
+- `PSScriptAnalyzer` ancora non installato su questa macchina.
+
+---
