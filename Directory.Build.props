@@ -7,7 +7,7 @@
          installazione e di pacchetto la leggono da qui (vedi Get-PluginVersion in
          scripts\Comune.ps1), cosi' la DLL e il PackageContents.xml non possono
          raccontare due versioni diverse. -->
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
 
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>

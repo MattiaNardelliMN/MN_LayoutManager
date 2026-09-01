@@ -37,6 +37,15 @@ namespace MN_LayoutManager.Infrastructure
         /// <param name="message">Descrizione in italiano.</param>
         public static void Warn(string operation, string message) => Write("WARN", operation, message, null);
 
+        /// <summary>
+        /// Registra un errore che il plugin ha riconosciuto da solo, senza che ci sia
+        /// un'eccezione tecnica dietro (per esempio: manca una stampante utilizzabile).
+        /// </summary>
+        /// <param name="operation">Cosa stava facendo il plugin quando si e' fermato.</param>
+        /// <param name="message">Spiegazione in italiano di cosa non ha funzionato.</param>
+        public static void Error(string operation, string message) =>
+            Write("ERROR", operation, message, null);
+
         /// <summary>Registra un errore, con i dettagli tecnici in coda.</summary>
         /// <param name="operation">Cosa stava facendo il plugin quando e' fallito.</param>
         /// <param name="message">Spiegazione in italiano di cosa non ha funzionato.</param>

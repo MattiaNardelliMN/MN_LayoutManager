@@ -72,7 +72,7 @@ namespace MN_LayoutManager.Services
                     // registrato nel log e riportato nella riga di comando.
                     if (!AcadContext.TryRun(
                             OperationName,
-                            () => RunPublish(dsdFilePath, outputKind),
+                            () => RunPublish(document, dsdFilePath, outputKind),
                             out string error))
                     {
                         AcadContext.WriteMessage(error);
@@ -86,8 +86,25 @@ namespace MN_LayoutManager.Services
         /// <summary>
         /// Esegue la pubblicazione vera e propria. Gia' dentro il contesto comando.
         /// </summary>
-        private static void RunPublish(string dsdFilePath, PublishOutputKind outputKind)
+        private static void RunPublish(
+            Document document,
+            string dsdFilePath,
+            PublishOutputKind outputKind)
         {
+            // La configurazione di stampa si sceglie PRIMA di ogni altra cosa: se
+            // manca, non c'e' niente da pubblicare e non ha senso aver gia' cambiato
+            // BACKGROUNDPLOT o agganciato l'ascoltatore degli esiti.
+            if (!PlotConfigResolver.TryResolve(
+                    document, outputKind, out PlotConfig plotConfig, out string configError))
+            {
+                // Si esce riportando il motivo invece di sollevare un'eccezione: non
+                // e' un errore imprevisto, e' una condizione prevista di cui l'utente
+                // deve conoscere la causa esatta.
+                PluginLog.Error(OperationName, configError);
+                AcadContext.WriteMessage(configError);
+                return;
+            }
+
             object previousBackgroundPlot = AcadApp.GetSystemVariable(BackgroundPlotVariable);
             var listener = new PublishOutcomeListener();
 
@@ -114,8 +131,7 @@ namespace MN_LayoutManager.Services
 
                     listener.Attach();
 
-                    PlotConfig config = PlotConfigManager.CurrentConfig;
-                    AcadApp.Publisher.PublishExecute(dsd, config);
+                    AcadApp.Publisher.PublishExecute(dsd, plotConfig);
                 }
 
                 listener.LogSummary(outputKind);
