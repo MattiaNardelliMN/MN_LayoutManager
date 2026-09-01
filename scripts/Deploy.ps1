@@ -120,7 +120,7 @@ Write-Host " Per AutoCAD   : $AutoCadYearRange (una sola installazione le copre 
 Write-Host ''
 Write-Host ' Cosa fare adesso:'
 Write-Host "   1. apri AutoCAD (dal $AutoCadYearMin al $AutoCadYearMax)"
-Write-Host "   2. digita il comando  $CommandName  e premi INVIO"
+Write-Host "   2. digita il comando  $CommandName  (oppure  $CommandAlias)  e premi INVIO"
 Write-Host ''
 Write-Host " Se qualcosa non funziona, il file di log e' qui:"
 Write-Host "   $env:APPDATA\MN_LayoutManager\logs\"

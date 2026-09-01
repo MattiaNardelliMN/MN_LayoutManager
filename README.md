@@ -71,6 +71,10 @@ In AutoCAD digita il comando:
 GESTIONELAYOUT
 ```
 
+Funziona anche il nome alternativo `LAYOUTMANAGER`: e' lo stesso comando, non
+un secondo comando. Esiste perche' chi conosce il plugin col nome del progetto
+digita d'istinto quello.
+
 Si apre la palette "Gestione Layout" (richiamando il comando una seconda volta si
 chiude). La palette si puo' agganciare a sinistra o a destra e ricorda posizione
 e dimensione fra una sessione e l'altra.
@@ -150,7 +154,13 @@ Ogni riga dice data, gravita' (INFO / WARN / ERROR), cosa stava facendo il plugi
 e cosa e' andato storto. E' il file da guardare (o da inoltrare) quando qualcosa
 si comporta in modo strano.
 
-### "Il comando GESTIONELAYOUT non viene riconosciuto"
+### "Il comando non viene riconosciuto"
+
+Per prima cosa controlla il **nome**: i comandi sono `GESTIONELAYOUT` e
+`LAYOUTMANAGER` (equivalenti). Se hai digitato altro, AutoCAD risponde
+"comando sconosciuto" anche con il plugin perfettamente installato.
+
+Se il nome e' giusto ma non succede niente:
 
 E' il caso piu' insidioso, perche' AutoCAD non da' nessun errore: se non trova una
 versione del plugin adatta al proprio motore, semplicemente non lo carica e non

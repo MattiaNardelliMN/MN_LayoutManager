@@ -108,7 +108,7 @@ try {
     $readme = $readme.Replace('{ANNI}',     $AutoCadYearRange).
                       Replace('{VERSIONI}', $elencoVersioni).
                       Replace('{VERSIONE}', $PluginVersion).
-                      Replace('{COMANDO}',  $CommandName).
+                      Replace('{COMANDO}',  "$CommandName  (oppure  $CommandAlias)").
                       Replace('{COMMIT}',   $commit).
                       Replace('{DATA}',     (Get-Date -Format 'dd/MM/yyyy'))
     Set-Content -Path (Join-Path $StageRoot 'LEGGIMI.txt') -Value $readme -Encoding UTF8
@@ -140,7 +140,7 @@ try {
     Write-Host '   1. estrai TUTTO lo ZIP in una cartella'
     Write-Host '   2. chiudi AutoCAD'
     Write-Host '   3. doppio click su "Installa plugin.bat"'
-    Write-Host "   4. apri AutoCAD e digita  $CommandName"
+    Write-Host "   4. apri AutoCAD e digita  $CommandName  (oppure  $CommandAlias)"
     Write-Host ''
 }
 finally {

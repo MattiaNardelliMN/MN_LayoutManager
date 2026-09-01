@@ -22,6 +22,8 @@ $BundleName       = 'MN_LayoutManager.bundle'
 $PluginAssembly   = 'MN_LayoutManager.dll'
 $CoreAssembly     = 'MN_LayoutManager.Core.dll'
 $CommandName      = 'GESTIONELAYOUT'
+# Secondo nome dello stesso comando (vedi PaletteCommandAlias in Commands.cs).
+$CommandAlias     = 'LAYOUTMANAGER'
 $ProductCode      = '{8F2B41C6-9D3E-4A57-B1C8-7E5D2A9F3B60}'
 
 <#

@@ -17,6 +17,14 @@ namespace MN_LayoutManager
         public const string PaletteCommandName = "GESTIONELAYOUT";
 
         /// <summary>
+        /// Secondo nome dello STESSO comando. Esiste perche' chi conosce il plugin come
+        /// "MN_LayoutManager" digita d'istinto questo, non il nome italiano, e si ritrova
+        /// un "comando sconosciuto" senza capire perche'.
+        /// Verificato che AutoCAD 2024 non abbia gia' un comando con questo nome.
+        /// </summary>
+        public const string PaletteCommandAlias = "LAYOUTMANAGER";
+
+        /// <summary>
         /// Chiamata da AutoCAD una sola volta al caricamento del plugin.
         /// Qui ci si iscrive agli eventi dei layout, che valgono per tutta la sessione.
         /// </summary>
@@ -49,10 +57,13 @@ namespace MN_LayoutManager
         /// Apre o chiude la palette "Gestione Layout".
         /// </summary>
         /// <remarks>
+        /// Ha due nomi (<see cref="PaletteCommandName"/> e <see cref="PaletteCommandAlias"/>):
+        /// sono due porte sulla stessa stanza, non due comandi diversi.
         /// <c>CommandFlags.Session</c> permette di lanciare il comando anche quando non
         /// c'e' nessun disegno aperto: la palette mostra semplicemente l'elenco vuoto.
         /// </remarks>
         [CommandMethod(PaletteCommandName, CommandFlags.Session)]
+        [CommandMethod(PaletteCommandAlias, CommandFlags.Session)]
         public void ShowLayoutPalette()
         {
             LayoutPaletteHost.Toggle();
