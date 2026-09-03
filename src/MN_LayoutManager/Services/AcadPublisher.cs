@@ -188,19 +188,19 @@ namespace MN_LayoutManager.Services
 
         /// <summary>
         /// Chiede ad AutoCAD di scrivere il proprio registro di pubblicazione accanto ai
-        /// log del plugin: quando un foglio non viene prodotto, il motivo preciso e' li'.
+        /// log del plugin.
         /// </summary>
+        /// <remarks>
+        /// Indicare il percorso non basta a far nascere il file: AutoCAD lo scrive solo
+        /// se il salvataggio automatico del registro e' attivo nelle sue opzioni.
+        /// Vedi <see cref="PublishLogFile"/>.
+        /// </remarks>
         private static void TrySetPublishLogPath(DsdData dsd)
         {
             try
             {
                 Directory.CreateDirectory(PluginLog.LogDirectory);
-                dsd.LogFilePath = Path.Combine(
-                    PluginLog.LogDirectory,
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        "pubblicazione_{0:yyyy-MM-dd}.csv",
-                        DateTime.Now));
+                dsd.LogFilePath = PublishLogFile.PathForToday();
             }
             catch (IOException ex)
             {

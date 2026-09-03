@@ -17,8 +17,9 @@ namespace MN_LayoutManager.Services
     /// <para>
     /// Se la pubblicazione va in secondo piano, AutoCAD la esegue in un processo a parte
     /// e gli eventi sui singoli fogli non arrivano qui: in quel caso resta comunque
-    /// registrato che il lavoro e' stato consegnato al processo di sfondo, e il registro
-    /// CSV di AutoCAD raccoglie il dettaglio.
+    /// registrato che il lavoro e' stato consegnato al processo di sfondo; il dettaglio
+    /// dei singoli fogli sta nel registro CSV di AutoCAD, che pero' esiste solo se
+    /// l'utente ne ha attivato il salvataggio (vedi <see cref="PublishLogFile"/>).
     /// </para>
     /// </remarks>
     internal sealed class PublishOutcomeListener
@@ -72,7 +73,7 @@ namespace MN_LayoutManager.Services
                 PluginLog.Error(
                     OperationName,
                     "AutoCAD ha annullato o fallito la pubblicazione: nessun file prodotto. "
-                    + "Il dettaglio e' nel registro CSV di pubblicazione, nella stessa cartella di questo log.",
+                    + PublishLogFile.WhereToLookHint(),
                     null);
                 return;
             }
@@ -83,9 +84,9 @@ namespace MN_LayoutManager.Services
                     OperationName,
                     string.Format(
                         CultureInfo.InvariantCulture,
-                        "Lavoro ({0}) consegnato alla pubblicazione in secondo piano di AutoCAD. "
-                        + "L'esito dei singoli fogli e' nel registro CSV di pubblicazione.",
-                        outputKind));
+                        "Lavoro ({0}) consegnato alla pubblicazione in secondo piano di AutoCAD. {1}",
+                        outputKind,
+                        PublishLogFile.WhereToLookHint()));
                 return;
             }
 
