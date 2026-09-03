@@ -965,17 +965,30 @@ frase sul CSV). E' la stessa precauzione che il 01/09 aveva evitato una risposta
 sul nome `LAYOUTMANAGER` dentro `acad.exe`. **Un metodo di verifica va verificato
 prima di credere al suo esito**, altrimenti si "scopre" un difetto che non esiste.
 
+**Rilascio 2.0.3 fatto, PRIMA della prova a mano (scelta dell'utente).**
+Il blocco precedente aveva deciso di rilasciare solo dopo aver visto il messaggio
+d'avvio comparire in AutoCAD. Ho segnalato il rischio - se il messaggio non
+comparisse, la 2.0.3 sarebbe gia' fuori e servirebbe una 2.0.4 - e l'utente ha
+scelto di rilasciare subito. Quindi:
+- branch `fix/messaggio-avvio-e-registro-csv` unito su `master` in fast-forward
+  (storia lineare, come il rilascio del 01/09): `9da0f5a` -> `85bd6c9`;
+- tag annotato `v2.0.3`;
+- `master` e tag spinti su GitHub. Il push va fatto con `gh` come gestore delle
+  credenziali, altrimenti su questa macchina fallisce (vedi la nota di memoria
+  `git-push-needs-gh-credential-helper`);
+- release GitHub **v2.0.3 - "Due messaggi che mentivano"** con lo ZIP allegato,
+  cosi' in ufficio si installa senza codice sorgente ne' SDK. Verificato dopo la
+  pubblicazione: allegato caricato (1.200.846 byte), non bozza, marcata "Latest".
+
 **Cosa resta da fare.**
 - **La prova a mano in AutoCAD**, l'unica cosa non automatizzabile: aprire AutoCAD e
   guardare la riga di comando appena il disegno e' pronto. Deve comparire
   "plugin caricato (...). Digita GESTIONELAYOUT (oppure LAYOUTMANAGER) per aprire la
   palette." E' la prova del difetto 1 del blocco precedente: fino ad oggi quel
-  messaggio non e' mai comparso.
-- **Merge, tag e push non sono stati fatti**: si fanno dopo la prova a mano, come
-  deciso nel blocco precedente. Il branch `fix/messaggio-avvio-e-registro-csv` ha 4
-  commit locali; `origin/master` e' ancora alla 2.0.2 (`9da0f5a`), e il tag `v2.0.3`
-  non esiste ancora.
-- `PSScriptAnalyzer` resta non installato (in sospeso dal 21/07): richiede di scaricare
-  un modulo da internet, quindi va deciso dall'utente. Non urgente.
+  messaggio non e' mai comparso. **Adesso e' l'unica cosa in sospeso della 2.0.3**, e
+  siccome il rilascio e' gia' avvenuto, se fallisse la correzione andrebbe in 2.0.4.
+- `PSScriptAnalyzer` resta non installato (in sospeso dal 21/07): l'utente ha deciso di
+  lasciarlo stare. I 4 script sono piccoli e il controllo di sintassi si fa a ogni
+  sessione, quindi non e' un debito che cresce.
 
 ---
