@@ -1076,3 +1076,80 @@ sul caso `-NoProfile` e' il posto dove guardare per primo.
   automatici veri, che e' la rete che contava.
 
 ---
+
+## 03/09/2026 (quarta parte) - La 2.0.3 bloccava AutoCAD all'avvio. Correzione 2.0.4
+
+**Segnalazione dell'utente.** Aprendo AutoCAD con la 2.0.3 installata, il programma
+restava bloccato con un comando attivo che chiedeva qualcosa, e se ne usciva solo
+premendo ESC. E' una **regressione introdotta dalla 2.0.3**, cioe' dalla correzione del
+messaggio d'avvio fatta poche ore prima.
+
+**La causa, e perche' era prevedibile solo conoscendo AutoCAD.**
+La 2.0.3 rimandava il messaggio di benvenuto al primo evento `Idle` di AutoCAD. Il nome
+inganna: **`Idle` non vuol dire "AutoCAD non sta facendo niente"**. Scatta anche mentre
+un comando e' fermo ad aspettare una risposta dall'utente - che dal punto di vista di
+AutoCAD e' esattamente un momento "senza lavoro da fare". Il plugin scriveva quindi
+"Gestione Layout: plugin caricato..." **sopra la domanda del comando in corso**: il
+comando restava in attesa, ma l'utente non vedeva piu' che cosa gli era stato chiesto.
+Da fuori sembra un blocco; l'unica via d'uscita e' ESC, che annulla il comando.
+
+Si sommava un secondo difetto, piu' vecchio ma finora innocuo: il messaggio finiva con
+un a capo (`"\nGestione Layout: {0}\n"`), quindi lasciava la riga di comando su una riga
+vuota senza che AutoCAD ristampasse `Comando:`. Anche quello, a schermo, sembra un
+programma in attesa. Prima non si notava perche' quel testo veniva scritto solo durante
+l'uso della palette, quando AutoCAD ridisegna subito il prompt.
+
+**Cosa ho fatto.**
+- Nuova `AcadContext.IsAtCommandPrompt()`: dice se AutoCAD e' fermo al prompt `Comando:`
+  (`Editor.IsQuiescent`). Il messaggio d'avvio ora si scrive **solo** in quel caso;
+  altrimenti si continua ad aspettare, e dopo due minuti si rinuncia annotandolo nel log.
+- Tolto l'a capo finale dal formato dei messaggi.
+- Versione portata a **2.0.4**.
+
+**Decisioni importanti (e perche').**
+- **Versione alzata, stavolta si.** Poche ore prima avevo deciso di NON alzarla per la
+  correzione degli script, perche' il plugin caricato da AutoCAD era identico. Qui invece
+  cambia proprio il comportamento dentro AutoCAD, e serve poter leggere dal log quale
+  build e' installata mentre si verifica se il problema e' sparito.
+- **`TryGetEditableDocument` NON riusa `IsAtCommandPrompt`**, pur avendo un controllo
+  quasi identico. Nella mia auto-revisione mi sono accorto che riusandola avrei cambiato
+  di nascosto il comportamento nel caso "editor assente": prima passava, dopo il
+  refactor avrebbe fallito. Le due domande sono diverse - "posso modificare il disegno?"
+  non ha bisogno dell'editor, "posso scrivere un messaggio?" si - e in una correzione
+  urgente non si toccano percorsi che oggi funzionano. La piccola ripetizione e'
+  documentata con un commento.
+- **La release v2.0.3 e' stata marcata come da non usare**, con un avviso in cima alle
+  sue note e il rimando alla 2.0.4. Lasciare pubblicato un pacchetto che blocca AutoCAD
+  senza dirlo sarebbe stato peggio del bug.
+
+**Verificato con:**
+- Build Release da zero: 0 errori, 0 avvisi su net48, net8, net10.
+- 143 test C# x 3 motori + 6 test PowerShell: tutti passati.
+- **Dentro le tre DLL installate**: versione 2.0.4, `IsAtCommandPrompt` e
+  `TryWriteWithoutDisturbing` presenti, e **il vecchio formato con l'a capo finale non
+  c'e' piu' in nessuna delle tre**. Quest'ultimo controllo e' quello che conta: il
+  formato nuovo e' un prefisso del vecchio, quindi cercare solo il nuovo avrebbe dato
+  "verde" anche se il vecchio fosse rimasto.
+- Pacchetto 2.0.4 rigenerato, estratto e controllato (tre varianti a 2.0.4, LEGGIMI
+  aggiornato). Release GitHub v2.0.4 pubblicata con lo ZIP allegato.
+
+**Il limite, detto chiaro.** Questa correzione **non e' verificabile in automatico**:
+dipende da come AutoCAD si comporta al proprio avvio e nessun test fuori da AutoCAD puo'
+riprodurlo. La logica e' quella giusta e `IsQuiescent` e' l'API prevista da Autodesk per
+questa domanda, ma la conferma puo' darla solo l'apertura di AutoCAD.
+
+**Lezione da ricordare (vale per la prossima volta).** Il difetto del 01/09 - il
+messaggio che non compariva - era **cosmetico**. La sua correzione ha prodotto un difetto
+**bloccante**. Quando si ripara un fastidio agganciandosi a un evento del programma
+ospite, il rischio di peggiorare le cose e' concreto: conviene chiedersi non solo "quando
+scatta questo evento?", ma "in quali situazioni scatta che io non ho considerato?".
+
+**Cosa resta da fare.**
+- **Aprire AutoCAD con la 2.0.4 installata** (gia' installata su questo PC) e verificare
+  due cose insieme: che NON ci sia piu' nessun blocco all'avvio, e che il messaggio
+  "plugin caricato ... Digita GESTIONELAYOUT (oppure LAYOUTMANAGER)" compaia nella riga
+  di comando. Se comparisse ancora il blocco, la strada da valutare e' togliere del tutto
+  il messaggio dalla riga di comando: la sua utilita' non vale il rischio.
+- `PSScriptAnalyzer` non installato, per scelta.
+
+---
