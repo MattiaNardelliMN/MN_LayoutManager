@@ -58,6 +58,10 @@ namespace MN_LayoutManager.Infrastructure
                 return false;
             }
 
+            // Volutamente NON si riusa IsAtCommandPrompt: qui la domanda e' "posso
+            // modificare il disegno?", li' e' "posso scrivere senza disturbare?". Sono
+            // due cose diverse e trattano il caso "nessun editor" in modo opposto: per
+            // modificare il disegno l'editor non serve, per scriverci si'.
             if (document.Editor != null && !document.Editor.IsQuiescent)
             {
                 document = null;
@@ -66,6 +70,23 @@ namespace MN_LayoutManager.Infrastructure
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Dice se AutoCAD e' fermo al prompt "Comando:", cioe' se non sta eseguendo
+        /// niente e non sta aspettando una risposta dall'utente.
+        /// </summary>
+        /// <remarks>
+        /// Serve a decidere se e' un momento sicuro per scrivere nella riga di comando.
+        /// Scrivere mentre un comando e' in attesa gli copre la domanda: il comando
+        /// resta li' ad aspettare, ma l'utente non vede piu' che cosa gli era stato
+        /// chiesto e si ritrova bloccato finche' non preme ESC.
+        /// </remarks>
+        /// <returns>true se si puo' scrivere senza disturbare nessuno.</returns>
+        public static bool IsAtCommandPrompt()
+        {
+            Document doc = AcadApp.DocumentManager.MdiActiveDocument;
+            return doc?.Editor != null && doc.Editor.IsQuiescent;
         }
 
         /// <summary>Scrive un messaggio nella riga di comando di AutoCAD.</summary>
@@ -99,8 +120,11 @@ namespace MN_LayoutManager.Infrastructure
                 return false;
             }
 
+            // Niente a capo finale: lo lascerebbe la riga di comando su una riga vuota,
+            // senza che AutoCAD ristampi "Comando:". A schermo sembra che il programma
+            // stia aspettando qualcosa che non arrivera' mai.
             doc.Editor.WriteMessage(
-                string.Format(CultureInfo.CurrentCulture, "\nGestione Layout: {0}\n", message));
+                string.Format(CultureInfo.CurrentCulture, "\nGestione Layout: {0}", message));
             return true;
         }
 

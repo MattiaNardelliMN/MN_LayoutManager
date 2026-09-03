@@ -18,6 +18,14 @@ namespace MN_LayoutManager.Infrastructure
     /// perche' e' un rimedio a un problema di tempi: se un domani AutoCAD offrisse un
     /// aggancio migliore, si cambia solo questo file.
     /// </para>
+    /// <para>
+    /// ATTENZIONE, e' la lezione che e' costata la 2.0.3: <c>Idle</c> non vuol dire
+    /// "AutoCAD non sta facendo niente". Scatta anche mentre un comando e' fermo ad
+    /// aspettare una risposta dall'utente. Scrivere in quel momento copre la domanda
+    /// del comando: il comando resta in attesa, l'utente non vede piu' che cosa gli era
+    /// stato chiesto, e per uscirne deve premere ESC. Per questo non basta che ci sia un
+    /// disegno: si aspetta che AutoCAD sia fermo al prompt "Comando:".
+    /// </para>
     /// </remarks>
     internal static class StartupMessage
     {
@@ -47,7 +55,7 @@ namespace MN_LayoutManager.Infrastructure
                 return;
             }
 
-            if (AcadContext.TryWriteMessage(message))
+            if (TryWriteWithoutDisturbing(message))
             {
                 return;
             }
@@ -88,7 +96,7 @@ namespace MN_LayoutManager.Infrastructure
 
         private static void ShowPendingOrGiveUp()
         {
-            if (AcadContext.TryWriteMessage(_pendingMessage))
+            if (TryWriteWithoutDisturbing(_pendingMessage))
             {
                 StopWaiting();
                 return;
@@ -98,10 +106,21 @@ namespace MN_LayoutManager.Infrastructure
             {
                 PluginLog.Warn(
                     OperationName,
-                    "Nessun disegno aperto: il messaggio di benvenuto non e' stato mostrato "
-                    + "nella riga di comando. Il plugin e' comunque caricato.");
+                    "AutoCAD non e' mai stato fermo al prompt dei comandi con un disegno "
+                    + "aperto: il messaggio di benvenuto non e' stato mostrato nella riga "
+                    + "di comando. Il plugin e' comunque caricato.");
                 StopWaiting();
             }
+        }
+
+        /// <summary>
+        /// Scrive il messaggio solo se e' un momento in cui non da' fastidio a nessuno.
+        /// </summary>
+        /// <param name="message">Testo da mostrare.</param>
+        /// <returns>true se il messaggio e' stato mostrato.</returns>
+        private static bool TryWriteWithoutDisturbing(string message)
+        {
+            return AcadContext.IsAtCommandPrompt() && AcadContext.TryWriteMessage(message);
         }
 
         private static void StopWaiting()
