@@ -189,6 +189,7 @@ riga di conferma con i due nomi del comando.
 src/MN_LayoutManager.Core/   logica pura (nomi, rinomina multipla, riordino, file DSD)
 src/MN_LayoutManager/        plugin vero: comandi AutoCAD + palette WPF scura
 tests/                       test automatici della logica pura
+tests/scripts/               test degli script PowerShell (Pester)
 scripts/                     installazione, disinstallazione, creazione pacchetto
 scripts/pacchetto/           file che finiscono dentro lo ZIP distribuibile
 dist/                        gli ZIP prodotti (non versionata)
@@ -201,8 +202,9 @@ le API AutoCAD contiene solo chiamate dirette, dove c'e' poco da sbagliare.
 ## Sviluppo
 
 ```
-dotnet build          compila tutto (tutte e tre le versioni)
-dotnet test           esegue i test automatici (su tutti e tre i motori .NET)
+dotnet build                        compila tutto (tutte e tre le versioni)
+dotnet test                         esegue i test del plugin (su tutti e tre i motori .NET)
+Invoke-Pester -Path tests\scripts   esegue i test degli script di installazione
 ```
 
 I test girano tre volte, una per motore .NET: e' voluto. Alcune cose si

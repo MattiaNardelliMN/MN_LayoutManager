@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Costanti e funzioni condivise fra gli script del progetto.
 
@@ -117,12 +117,117 @@ function Get-PluginVersion {
     return $match.Groups[1].Value
 }
 
+<#
+.SYNOPSIS
+    Dice se fra gli argomenti di PowerShell c'e' -NonInteractive.
+
+.DESCRIPTION
+    E' la parte "che ragiona" del controllo sull'interattivita', tenuta separata
+    apposta: non guarda com'e' fatta la sessione in corso, quindi si puo' provare
+    con argomenti finti e il test vale sempre. La funzione che invece interroga
+    Windows e' Test-Interattivo, qui sotto.
+
+    PowerShell accetta i parametri abbreviati, quindi non basta cercare la parola
+    intera: "-noni" vale come "-NonInteractive". Si cerca il prefisso "-non", che
+    e' il piu' corto che non si confonde con nessun altro parametro. Fermarsi a
+    "-no" sarebbe un guaio serio: i .bat del progetto lanciano PowerShell con
+    -NoProfile, quindi la pausa sparirebbe da tutti i doppi click e la finestra
+    si chiuderebbe in faccia all'utente.
+
+.PARAMETER CommandLineArgs
+    Gli argomenti da esaminare.
+
+.OUTPUTS
+    [bool] Vero se gli argomenti dichiarano una sessione senza input.
+#>
+function Test-ArgomentiNonInteractive {
+    [OutputType([bool])]
+    param(
+        [string[]]$CommandLineArgs
+    )
+
+    foreach ($arg in $CommandLineArgs) {
+        if ($arg -match '^-{1,2}non') {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+<#
+.SYNOPSIS
+    Dice se c'e' davvero una persona davanti allo schermo che puo' premere INVIO.
+
+.DESCRIPTION
+    Serve a decidere se ha senso fermarsi con "Premi INVIO per chiudere".
+    Col doppio click sul .bat la pausa e' indispensabile: senza, la finestra si
+    chiuderebbe prima che si riesca a leggere l'esito. Lanciato da un altro
+    script o da un'automazione, invece, non c'e' nessuno che possa rispondere:
+    Read-Host solleva un errore e lo script muore PRIMA di arrivare al proprio
+    exit, quindi il codice di uscita smette di distinguere "riuscito" da
+    "fallito".
+
+    Due controlli, perche' coprono casi diversi:
+      - UserInteractive e' falso quando non c'e' proprio una scrivania
+        (servizio di Windows, operazione pianificata);
+      - -NonInteractive e' il caso piu' comune: la scrivania c'e', ma quella
+        specifica sessione di PowerShell ha l'input chiuso.
+
+.PARAMETER CommandLineArgs
+    Argomenti da esaminare. Esiste per poter provare la funzione con valori
+    finti: senza, si potrebbe verificare solo il caso in cui si sta girando.
+
+.OUTPUTS
+    [bool] Vero se ci si puo' aspettare una risposta dall'utente.
+#>
+function Test-Interattivo {
+    [OutputType([bool])]
+    param(
+        [string[]]$CommandLineArgs = [Environment]::GetCommandLineArgs()
+    )
+
+    if (-not [Environment]::UserInteractive) {
+        return $false
+    }
+
+    return -not (Test-ArgomentiNonInteractive -CommandLineArgs $CommandLineArgs)
+}
+
+<#
+.SYNOPSIS
+    Si ferma ad aspettare INVIO, ma solo se qualcuno puo' premerlo.
+
+.PARAMETER Text
+    Testo dell'invito. Ha un valore predefinito perche' e' sempre lo stesso.
+#>
+function Wait-Invio {
+    param(
+        [string]$Text = 'Premi INVIO per chiudere.'
+    )
+
+    if (-not (Test-Interattivo)) {
+        return
+    }
+
+    Write-Host ''
+    Write-Host $Text
+
+    # Ultima rete: se l'host non ha input nonostante i controlli, la pausa e'
+    # una cortesia, non il lavoro dello script. L'esito e' gia' stato scritto
+    # qui sopra, quindi si prosegue verso l'exit invece di morire qui.
+    try {
+        [void](Read-Host)
+    }
+    catch {
+        Write-Verbose "Pausa saltata: nessun input disponibile ($($_.Exception.Message))"
+    }
+}
+
 function Stop-WithError([string]$Text) {
     Write-Host ''
     Write-Host "!!! $Text" -ForegroundColor Red
-    Write-Host ''
-    Write-Host 'Premi INVIO per chiudere.'
-    [void](Read-Host)
+    Wait-Invio
     exit 1
 }
 

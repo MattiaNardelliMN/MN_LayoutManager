@@ -36,9 +36,7 @@ if ($Uninstall) {
     else {
         Write-Host '    Il plugin non risultava installato.' -ForegroundColor Yellow
     }
-    Write-Host ''
-    Write-Host 'Premi INVIO per chiudere.'
-    [void](Read-Host)
+    Wait-Invio
     exit 0
 }
 
@@ -98,6 +96,4 @@ Write-Host " Se qualcosa non funziona, il file di log e' qui:"
 Write-Host "   $env:APPDATA\MN_LayoutManager\logs\"
 Write-Host ''
 Write-Host ' Per disinstallare: doppio click su "Disinstalla plugin.bat"'
-Write-Host ''
-Write-Host 'Premi INVIO per chiudere.'
-[void](Read-Host)
+Wait-Invio
