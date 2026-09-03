@@ -992,3 +992,87 @@ scelto di rilasciare subito. Quindi:
   sessione, quindi non e' un debito che cresce.
 
 ---
+
+## 03/09/2026 (terza parte) - La pausa "Premi INVIO" mangiava il codice di uscita
+
+Seguito del blocco precedente. Durante l'auto-revisione era emersa una fragilita' negli
+script di installazione; l'utente ha chiesto di sistemarla e ricaricare su GitHub.
+
+**Il difetto.** `Deploy.ps1`, `Installa.ps1` (quello dentro lo ZIP) e `Stop-WithError`
+finivano tutti con `Read-Host`, cioe' "Premi INVIO per chiudere". Col doppio click sul
+`.bat` quella pausa **serve**: senza, la finestra si chiude prima che si riesca a
+leggere l'esito. Ma se lo script viene lanciato da un'automazione o da un altro script,
+non c'e' nessuno che possa rispondere: `Read-Host` solleva un errore e lo script muore
+**prima** di arrivare al proprio `exit`. Risultato: un `Deploy.ps1` che aveva installato
+tutto correttamente riportava comunque codice di uscita 1. Il codice di uscita smetteva
+di distinguere "riuscito" da "fallito", che e' la sola cosa che un'automazione guarda.
+
+**Cosa ho fatto.** Due funzioni nuove in `Comune.ps1`, quindi valide anche dentro lo ZIP
+(`Installa.ps1` richiama gia' `Comune.ps1`):
+- `Test-ArgomentiNonInteractive` - logica pura: guarda solo gli argomenti passati;
+- `Test-Interattivo` - mette insieme quella risposta con quello che dice Windows sulla
+  sessione (`UserInteractive`);
+- `Wait-Invio` - si ferma ad aspettare INVIO **solo se qualcuno puo' premerlo**.
+I 5 `Read-Host` sparsi sono diventati 1 solo, dentro `Wait-Invio`.
+
+**Perche' le due funzioni sono separate (e non e' pedanteria).**
+Il primo tentativo aveva una funzione sola, e i test confrontavano il risultato con
+`[Environment]::UserInteractive`. Sembravano verdi. Poi la verifica di mutazione ha
+mostrato che **restavano verdi anche rompendo apposta la funzione**: in una sessione
+non interattiva `UserInteractive` e' gia' falso, quindi il test confrontava `False` con
+`False` qualunque cosa facesse il codice. Era di nuovo una **rete di sicurezza finta**,
+la stessa specie del bug dei numeri DSD del 09/08. Separando la logica pura, le attese
+dei test sono assolute (`vero`/`falso` scritti a mano) e valgono su qualsiasi macchina.
+E' lo stesso principio con cui il progetto tiene `.Core` separato dalle API AutoCAD.
+
+**La trappola nascosta nel riconoscimento.** PowerShell accetta i parametri abbreviati,
+quindi `-noni` vale come `-NonInteractive`: non basta cercare la parola intera. Si cerca
+il prefisso `-non`, il piu' corto che non si confonde con altro. Fermarsi a `-no`
+sarebbe stato un guaio serio: i `.bat` del progetto lanciano PowerShell con `-NoProfile`,
+quindi la pausa sarebbe sparita da **tutti** i doppi click e la finestra si sarebbe
+chiusa in faccia all'utente. C'e' un test apposta per questo caso.
+
+**Decisioni importanti (e perche').**
+- **Test scritti senza `Should`.** La sintassi di `Should` e' cambiata fra Pester 3 e
+  Pester 5 e le due non sono compatibili; su questa macchina c'e' la 3.4.0. Con semplici
+  `if ... throw` i test girano su qualsiasi versione, anche fra due anni.
+- **La versione NON e' stata cambiata**, resta 2.0.3. Il plugin che AutoCAD carica e'
+  identico: sono cambiati solo gli script di installazione. Alzarla avrebbe cambiato la
+  riga che il log stampa all'avvio proprio mentre e' in sospeso la prova a mano di quella
+  riga, confondendo la verifica.
+- **Lo ZIP allegato alla release v2.0.3 e' stato sostituito** con quello rigenerato, per
+  non lasciare pubblicato un installatore piu' vecchio del codice.
+
+**Verificato con:**
+- Build Release: 0 errori, 0 avvisi su net48, net8, net10. 143 test C# x 3 motori, verdi.
+- 6 test PowerShell nuovi (`tests\scripts\Comune.Tests.ps1`), verdi.
+- **Verifica di mutazione, tre guasti introdotti apposta uno alla volta**: `-no` al posto
+  di `-non`; niente forme abbreviate; pausa mai saltata. **Ogni guasto ha fatto diventare
+  rosso il test giusto**, poi ripristinato e tornati verdi. E' cosi' che si e' scoperta
+  la rete finta descritta sopra: la prima versione dei test NON diventava rossa.
+- **I due comportamenti provati davvero, non solo a ragionamento:** `Deploy.ps1` lanciato
+  con `-NonInteractive` ora esce **0** (prima 1) e non chiede INVIO; forzando il ramo
+  interattivo la pausa compare, consuma l'INVIO e lo script prosegue.
+- **Prova completa del pacchetto**: ZIP rigenerato, estratto, e lanciato **il suo**
+  installatore: uscita 0, plugin installato, nessun errore.
+- **Controllato lo ZIP RISCARICATO DA GITHUB**, non quello locale: contiene le funzioni
+  nuove, `Installa.ps1` senza `Read-Host`, e le tre DLL a 2.0.3.
+- Sintassi dei 5 file PowerShell: 0 errori.
+
+**Un limite onesto di questa verifica.** In questa sessione `UserInteractive` e' falso,
+quindi il vero doppio click sul `.bat` non e' riproducibile: il ramo interattivo e' stato
+provato forzando la condizione. Se un domani la pausa sparisse dal doppio click, il test
+sul caso `-NoProfile` e' il posto dove guardare per primo.
+
+**Commit / release.**
+- `fix: scripts died on the "press ENTER" pause when run unattended` (894e8e0), spinto
+  su `master`. Nessun tag nuovo: la versione non cambia.
+- Allegato della release v2.0.3 sostituito con lo ZIP rigenerato.
+
+**Cosa resta da fare.**
+- **Invariato e unico**: la prova a mano in AutoCAD del messaggio d'avvio. Il plugin
+  installato e' la 2.0.3, gia' pronto.
+- `PSScriptAnalyzer` non installato, per scelta. Ora pero' gli script hanno dei test
+  automatici veri, che e' la rete che contava.
+
+---
