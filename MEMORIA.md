@@ -923,3 +923,59 @@ possono piu' divergere.
   solo il PDF.
 
 ---
+
+## 03/09/2026 (seconda parte) - Installata la 2.0.3 e rifatto il pacchetto
+
+Sessione di consegna, non di sviluppo: **nessuna riga di codice nuova**. Sono state
+eseguite le cose rimaste in coda al blocco precedente, cioe' portare la 2.0.3 dal
+codice al plugin davvero installato e al pacchetto distribuibile.
+
+**Cosa ho fatto.**
+- Controllato che AutoCAD non fosse in esecuzione (`Get-Process acad`): l'installazione
+  non sovrascrive un plugin in uso, ed e' il motivo per cui il 01/09 era rimasta a meta'.
+- Ricompilato da zero in Release: 0 errori, 0 avvisi su net48, net8, net10.
+- `dotnet test`: 143 test x 3 motori, tutti passati.
+- Installata la **2.0.3** con `scripts\Deploy.ps1`.
+- Rigenerato il pacchetto con `scripts\CreaPacchetto.ps1`:
+  `dist\MN_LayoutManager_v2.0.3_AutoCAD2024-2027_2026-09-03.zip` (1172,7 KB).
+  Quello in `dist\` era fermo alla 2.0.2.
+
+**Verificato con (la parte che conta).**
+- **Dentro le tre DLL EFFETTIVAMENTE INSTALLATE** in `ApplicationPlugins` - non quelle
+  di compilazione, che sono un'altra cosa: versione 2.0.3 su tutte e tre, commit
+  `4e818f3` (= HEAD), e presenti tutti i pezzi nuovi del blocco precedente
+  (`StartupMessage`, `PublishLogFile`, il messaggio d'avvio con **entrambi** i nomi del
+  comando, la frase condizionale sul registro CSV). La vecchia frase bugiarda
+  ("e' nel registro CSV di pubblicazione") non c'e' piu' in nessuna delle tre.
+- `PackageContents.xml` installato: `AppVersion="2.0.3"`, i tre intervalli di serie
+  invariati e non sovrapposti (R24.3 / R25.0-R25.1 / R26.0).
+- ZIP estratto e ispezionato: le tre varianti tutte a 2.0.3, **nessun sorgente e
+  nessun `.pdb`** dentro, `LEGGIMI.txt` senza segnaposto rimasti e con versione,
+  data e build (`4e818f3`) giusti.
+- Controllo di sintassi dei 4 script PowerShell: 0 errori.
+
+**Una lezione sul metodo di verifica (vale per le prossime volte).**
+Il primo tentativo di cercare le stringhe dentro le DLL ha dato **quattro falsi
+"manca"**: decodificando l'intero file come UTF-16 partendo dal primo byte, tutte le
+stringhe che iniziano a un byte dispari escono illeggibili e la ricerca non le trova.
+Rifatta la ricerca a livello di byte, che funziona a qualsiasi allineamento, sono
+comparse tutte. Per accorgersene sono stati aggiunti due controlli del controllo: una
+stringa che DEVE esserci (`PublishLogFile`) e una che NON deve esserci (la vecchia
+frase sul CSV). E' la stessa precauzione che il 01/09 aveva evitato una risposta falsa
+sul nome `LAYOUTMANAGER` dentro `acad.exe`. **Un metodo di verifica va verificato
+prima di credere al suo esito**, altrimenti si "scopre" un difetto che non esiste.
+
+**Cosa resta da fare.**
+- **La prova a mano in AutoCAD**, l'unica cosa non automatizzabile: aprire AutoCAD e
+  guardare la riga di comando appena il disegno e' pronto. Deve comparire
+  "plugin caricato (...). Digita GESTIONELAYOUT (oppure LAYOUTMANAGER) per aprire la
+  palette." E' la prova del difetto 1 del blocco precedente: fino ad oggi quel
+  messaggio non e' mai comparso.
+- **Merge, tag e push non sono stati fatti**: si fanno dopo la prova a mano, come
+  deciso nel blocco precedente. Il branch `fix/messaggio-avvio-e-registro-csv` ha 4
+  commit locali; `origin/master` e' ancora alla 2.0.2 (`9da0f5a`), e il tag `v2.0.3`
+  non esiste ancora.
+- `PSScriptAnalyzer` resta non installato (in sospeso dal 21/07): richiede di scaricare
+  un modulo da internet, quindi va deciso dall'utente. Non urgente.
+
+---
