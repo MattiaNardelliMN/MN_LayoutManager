@@ -832,3 +832,94 @@ funziona), ma il messaggio va corretto o il registro va attivato davvero.
 - `PSScriptAnalyzer` ancora non installato su questa macchina.
 
 ---
+
+## 03/09/2026 - Due messaggi che mentivano: quello d'avvio e quello sul CSV
+
+Sessione breve e mirata. Nessuna funzione nuova: sono stati chiusi i due difetti
+minori che erano rimasti scritti in fondo alla memoria da settembre, entrambi
+della stessa famiglia - il plugin diceva all'utente cose che non erano vere.
+
+**Prove sul campo passate (dette dall'utente).** AutoCAD **2026 e 2027** provati:
+funziona tutto. Restavano gli ultimi due software mai aperti da nessuno, e ora
+non ci sono piu' versioni non provate. La **stampa su plotter** e' stata invece
+messa da parte per scelta: qui interessa solo produrre PDF, quindi non e' un
+lavoro in sospeso ma una funzione che non si usa.
+
+**Difetto 1 - il messaggio d'avvio non compariva mai.**
+All'avvio il plugin dovrebbe scrivere nella riga di comando "plugin caricato,
+digita GESTIONELAYOUT". Non e' mai comparso: AutoCAD carica i plugin del bundle
+PRIMA di aprire il disegno iniziale, e senza disegno non esiste nessuna riga di
+comando su cui scrivere. Il messaggio veniva quindi buttato via proprio nel
+momento in cui sarebbe servito - ed e' esattamente il messaggio che il 01/09
+avrebbe evitato l'ora persa a cercare un comando che si chiamava in un altro modo.
+
+La soluzione: il messaggio non si perde piu', si mette in attesa. Il nuovo modulo
+`Infrastructure\StartupMessage.cs` lo tiene da parte e lo riscrive al primo momento
+libero di AutoCAD (evento `Idle`), quando il disegno c'e'. Il messaggio ora nomina
+**entrambi** i nomi del comando.
+
+**Difetto 2 - il log rimandava a un file che di solito non c'e'.**
+Il plugin scriveva "l'esito dei singoli fogli e' nel registro CSV di pubblicazione".
+Quel CSV pero' lo scrive AutoCAD, e **solo** se nelle sue opzioni e' attivo il
+salvataggio automatico del registro di stampa e pubblicazione. Il plugin puo'
+soltanto dire DOVE scriverlo, non accenderlo. Risultato: l'utente veniva mandato a
+cercare un file quasi sempre inesistente.
+
+Ora il messaggio e' condizionale: dice il percorso, dice a quale condizione il file
+esiste e come si attiva. Percorso e frase stanno in un modulo solo,
+`Infrastructure\PublishLogFile.cs`, cosi' il file e il modo di raccontarlo non
+possono piu' divergere.
+
+**Decisioni importanti (e perche').**
+- **`StartupMessage` e' un modulo a se'.** E' un rimedio a un problema di tempi, non
+  una soluzione elegante: tenerlo separato vuol dire che se un domani AutoCAD offrisse
+  un aggancio migliore si cambia un file solo. Stessa logica del `LayoutTabRefresher`
+  di luglio.
+- **Si smette di riprovare dopo 2 minuti.** L'evento `Idle` di AutoCAD scatta di
+  continuo: restare agganciati per sempre, nel caso in cui un disegno non venga mai
+  aperto, sarebbe uno spreco. Dopo il tempo massimo il plugin rinuncia e lo annota
+  nel log.
+- **Se il tentativo fallisce si rinuncia subito.** Un errore dentro `Idle` si
+  ripeterebbe centinaia di volte al secondo riempiendo il log di righe identiche.
+- **Il plugin NON attiva il registro CSV di AutoCAD al posto dell'utente.** Verificato
+  per riflessione: su `DsdData` esiste solo `LogFilePath`, nessun interruttore. Sarebbe
+  quindi andato toccato un impostazione generale di AutoCAD - la stessa ragione per cui
+  a luglio `BACKGROUNDPLOT` veniva rimessa com'era. Meglio un messaggio onesto che una
+  modifica non richiesta alle preferenze di chi usa il programma.
+- **Nessun test automatico nuovo, di proposito.** `StartupMessage` vive di eventi
+  AutoCAD e non e' verificabile fuori da AutoCAD; il testo del messaggio sul CSV, se
+  testato, sarebbe un test che ricopia il codice invece di controllarlo - la "rete di
+  sicurezza finta" che il 09/08 aveva lasciato passare il bug dei numeri del DSD.
+
+**Verificato con:**
+- `dotnet build -c Release -t:Rebuild`: 0 errori, **0 avvisi** su net48, net8, net10.
+- `dotnet test`: **143 test x 3 motori, tutti passati** (invariati: non ne servivano
+  di nuovi).
+- **Letto dentro tutte e tre le DLL compilate** che il codice nuovo ci sia davvero
+  (`StartupMessage`, la frase condizionale sul registro, il messaggio con i due nomi
+  del comando). E' il controllo che a settembre aveva confermato l'alias del comando:
+  compilare non basta, va guardato cosa e' finito nel file che AutoCAD carica.
+- Corretta anche una riga del `README.md` che prometteva la comparsa del messaggio
+  d'avvio: era falsa fino a oggi.
+
+**Commit / release.**
+- Branch `fix/messaggio-avvio-e-registro-csv`, tre commit separati (un difetto per
+  commit, piu' il cambio di versione).
+- Versione portata a **2.0.3**: cambia cio' che l'utente vede, quindi la build
+  installata deve potersi distinguere dalla 2.0.2 leggendo il log.
+
+**Cosa resta da fare:**
+- **Installare la 2.0.3** (`scripts\Deploy.ps1`, con AutoCAD chiuso) e **guardare la
+  riga di comando all'avvio**: deve comparire "plugin caricato ... Digita
+  GESTIONELAYOUT (oppure LAYOUTMANAGER)". E' l'unica prova che conta per il difetto 1,
+  e non e' verificabile in automatico.
+- Rigenerare il pacchetto ZIP (`scripts\CreaPacchetto.ps1`): quello in `dist\` e' fermo
+  alla 2.0.2.
+- Il branch non e' stato unito ne' spinto su GitHub: da fare dopo la prova a mano.
+- `PSScriptAnalyzer` resta non installato (in sospeso dal 21/07). Serve solo a
+  controllare gli script PowerShell senza eseguirli; i 4 script del progetto sono
+  piccoli e gia' controllati per sintassi, quindi non e' urgente.
+- **Stampa su plotter: non e' piu' in sospeso.** L'utente ha deciso che interessa
+  solo il PDF.
+
+---
