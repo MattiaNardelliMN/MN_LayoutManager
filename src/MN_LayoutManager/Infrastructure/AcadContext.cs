@@ -72,19 +72,36 @@ namespace MN_LayoutManager.Infrastructure
         /// <param name="message">Testo da mostrare.</param>
         public static void WriteMessage(string message)
         {
+            TryWriteMessage(message);
+        }
+
+        /// <summary>
+        /// Come <see cref="WriteMessage"/>, ma dice anche se il messaggio e' stato
+        /// davvero mostrato.
+        /// </summary>
+        /// <remarks>
+        /// Serve a chi deve riprovare piu' tardi: la riga di comando esiste solo se c'e'
+        /// un disegno aperto, e quando AutoCAD carica il plugin dal bundle non c'e'
+        /// ancora. Vedi <see cref="StartupMessage"/>.
+        /// </remarks>
+        /// <param name="message">Testo da mostrare.</param>
+        /// <returns>true se il messaggio e' finito nella riga di comando.</returns>
+        public static bool TryWriteMessage(string message)
+        {
             if (string.IsNullOrEmpty(message))
             {
-                return;
+                return false;
             }
 
             Document doc = AcadApp.DocumentManager.MdiActiveDocument;
             if (doc?.Editor == null)
             {
-                return;
+                return false;
             }
 
             doc.Editor.WriteMessage(
                 string.Format(CultureInfo.CurrentCulture, "\nGestione Layout: {0}\n", message));
+            return true;
         }
 
         /// <summary>

@@ -180,7 +180,8 @@ dice niente. Per distinguere le due situazioni **guarda se il file di log esiste
   sua sigla di versione non rientra in nessuno dei blocchi del
   `PackageContents.xml`. Serve aggiungere la versione (vedi sopra).
 
-La stessa riga compare anche nella riga di comando di AutoCAD all'avvio.
+Nella riga di comando di AutoCAD, appena il disegno e' pronto, compare anche una
+riga di conferma con i due nomi del comando.
 
 ## Struttura del progetto
 

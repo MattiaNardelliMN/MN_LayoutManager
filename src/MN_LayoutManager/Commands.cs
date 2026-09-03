@@ -37,9 +37,13 @@ namespace MN_LayoutManager
             PluginLog.Info("Avvio", BuildInfo.Describe());
             LayoutChangeNotifier.Start();
 
-            AcadContext.WriteMessage(
+            // Non si usa AcadContext.WriteMessage: al caricamento dal bundle non c'e'
+            // ancora nessun disegno, quindi il messaggio andrebbe perso. StartupMessage
+            // lo ripropone appena AutoCAD e' pronto.
+            StartupMessage.Show(
                 "plugin caricato (" + BuildInfo.BuiltFor + "). Digita "
-                + PaletteCommandName + " per aprire la palette.");
+                + PaletteCommandName + " (oppure " + PaletteCommandAlias
+                + ") per aprire la palette.");
         }
 
         /// <summary>
@@ -50,6 +54,7 @@ namespace MN_LayoutManager
         {
             LayoutPaletteHost.Shutdown();
             LayoutChangeNotifier.Stop();
+            StartupMessage.Cancel();
             PluginLog.Info("Chiusura", "Plugin Gestione Layout scaricato.");
         }
 
